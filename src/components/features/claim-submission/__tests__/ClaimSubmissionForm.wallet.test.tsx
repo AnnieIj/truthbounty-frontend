@@ -45,7 +45,8 @@ jest.mock('@/app/queries/claims.queries', () => ({
 // Wagmi hooks used by the form
 jest.mock('wagmi', () => ({
   useConnect: () => ({ connect: mockConnect, connectors: mockConnectors }),
-  useChainId: () => 11155420,
+  useAccount: () => (mockAccount ? { address: mockAccount.address, chainId: mockAccount.chainId } : { address: undefined, chainId: undefined }),
+  useChainId: () => mockAccount?.chainId ?? 11155420,
   usePublicClient: () => ({}),
   useReadContract: () => ({ data: undefined }),
   useWriteContract: () => ({ writeContractAsync: jest.fn() }),

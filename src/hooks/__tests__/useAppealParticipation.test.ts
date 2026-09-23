@@ -141,7 +141,7 @@ describe('useAppealParticipation', () => {
       expect(simulation?.data?.calldata).toContain('0xdef67890'); // Oppose selector
     });
 
-    it('should submit participation successfully', async () => {
+    it('fails closed without a wallet write path (never fabricates a tx hash)', async () => {
       const { result } = renderHook(() =>
         useAppealParticipation({
           contractAddress: mockContractAddress,
@@ -149,47 +149,54 @@ describe('useAppealParticipation', () => {
       );
 
       const mockContext = createMockContext();
-      let transaction: any;
+      let error: Error | undefined;
 
       await act(async () => {
-        transaction = await result.current.submitParticipation(
-          mockContext,
-          'SUPPORT',
-          '500000000000000000'
-        );
+        try {
+          await result.current.submitParticipation(
+            mockContext,
+            'SUPPORT',
+            '500000000000000000'
+          );
+        } catch (e) {
+          error = e as Error;
+        }
       });
 
-      expect(transaction).toBeDefined();
-      expect(transaction?.transactionHash).toMatch(/^0x[a-f0-9]{64}$/);
-      expect(transaction?.from).toBe(mockUserAddress);
-      expect(transaction?.to).toBe(mockContractAddress);
-      expect(transaction?.status).toBe('PENDING');
-      expect(transaction?.decision).toBe('SUPPORT');
-      expect(transaction?.appealId).toBe('appeal-123');
-      expect(transaction?.claimId).toBe('claim-456');
-      expect(transaction?.disputeId).toBe('dispute-789');
+      expect(error).toBeDefined();
+      expect(error?.message).toMatch(/no synthetic transaction hash|writeContract/i);
+      expect(result.current.lastTransaction).toBeNull();
+      expect(result.current.error).toMatch(/writeContract|synthetic/i);
     });
 
-    it('should track last transaction', async () => {
+    it('fails closed when the wallet is on the wrong chain', async () => {
+      (wagmi.useChainId as jest.Mock).mockReturnValue(1);
+
       const { result } = renderHook(() =>
         useAppealParticipation({
           contractAddress: mockContractAddress,
+          expectedChainId: OPTIMISM_MAINNET,
         })
       );
 
       const mockContext = createMockContext();
+      let error: Error | undefined;
 
       await act(async () => {
-        await result.current.submitParticipation(
-          mockContext,
-          'OPPOSE',
-          '200000000000000000'
-        );
+        try {
+          await result.current.submitParticipation(
+            mockContext,
+            'SUPPORT',
+            '500000000000000000'
+          );
+        } catch (e) {
+          error = e as Error;
+        }
       });
 
-      expect(result.current.lastTransaction).toBeDefined();
-      expect(result.current.lastTransaction?.decision).toBe('OPPOSE');
-      expect(result.current.lastTransaction?.stakeAmount).toBe('200000000000000000');
+      expect(error).toBeDefined();
+      expect(error?.message).toMatch(/Wrong network|Unsupported network|readiness/i);
+      expect(result.current.lastTransaction).toBeNull();
     });
   });
 
@@ -434,7 +441,7 @@ describe('useAppealParticipation', () => {
   });
 
   describe('simulation before submission', () => {
-    it('should simulate before submitting', async () => {
+    it('should simulate before submitting and fail closed without a wallet write', async () => {
       const { result } = renderHook(() =>
         useAppealParticipation({
           contractAddress: mockContractAddress,
@@ -443,19 +450,20 @@ describe('useAppealParticipation', () => {
 
       const mockContext = createMockContext();
 
-      // Spy on simulateParticipation
-      const simulateSpy = jest.spyOn(result.current, 'simulateParticipation');
-
       await act(async () => {
-        await result.current.submitParticipation(
-          mockContext,
-          'SUPPORT',
-          '500000000000000000'
-        );
+        try {
+          await result.current.submitParticipation(
+            mockContext,
+            'SUPPORT',
+            '500000000000000000'
+          );
+        } catch (e) {
+          // Expected: no synthetic hash without writeContract
+          expect((e as Error).message).toMatch(/writeContract|synthetic/i);
+        }
       });
 
-      // Note: In the actual implementation, submitParticipation calls simulateParticipation internally
-      expect(result.current.lastTransaction).toBeDefined();
+      expect(result.current.lastTransaction).toBeNull();
     });
 
     it('should not submit if simulation fails', async () => {
@@ -476,6 +484,30 @@ describe('useAppealParticipation', () => {
           );
         })
       ).rejects.toThrow();
+
+      expect(result.current.lastTransaction).toBeNull();
+    });
+
+    it('does not invent a last transaction after a failed submission', async () => {
+      const { result } = renderHook(() =>
+        useAppealParticipation({
+          contractAddress: mockContractAddress,
+        })
+      );
+
+      const mockContext = createMockContext();
+
+      await act(async () => {
+        try {
+          await result.current.submitParticipation(
+            mockContext,
+            'SUPPORT',
+            '500000000000000000'
+          );
+        } catch {
+          // expected fail-closed
+        }
+      });
 
       expect(result.current.lastTransaction).toBeNull();
     });

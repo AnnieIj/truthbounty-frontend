@@ -10,6 +10,7 @@ import * as wagmi from 'wagmi';
 
 jest.mock('wagmi', () => ({
   useAccount: jest.fn(),
+  useChainId: jest.fn(),
 }));
 
 describe('useSettlementSubmission', () => {
@@ -21,6 +22,7 @@ describe('useSettlementSubmission', () => {
     (wagmi.useAccount as jest.Mock).mockReturnValue({
       address: mockUserAddress,
     });
+    (wagmi.useChainId as jest.Mock).mockReturnValue(11155420);
   });
 
   describe('simulation', () => {
@@ -122,7 +124,7 @@ describe('useSettlementSubmission', () => {
   });
 
   describe('submission', () => {
-    it('should submit settlement transaction', async () => {
+    it('fails closed without a wallet write path (never fabricates a tx hash)', async () => {
       const { result } = renderHook(() =>
         useSettlementSubmission({
           contractAddress: mockContractAddress,
@@ -135,21 +137,24 @@ describe('useSettlementSubmission', () => {
         isCallable: true,
       };
 
-      let submission: any;
+      let error: Error | undefined;
       await act(async () => {
-        submission = await result.current.submitSettlement(action);
+        try {
+          await result.current.submitSettlement(action);
+        } catch (e) {
+          error = e as Error;
+        }
       });
 
-      expect(submission).toBeDefined();
-      expect(submission?.transactionHash).toMatch(/^0x[a-f0-9]{64}$/);
-      expect(submission?.status).toBe('pending');
-      expect(submission?.type).toBe('SETTLE_PROVISIONAL');
-      expect(submission?.claimId).toBe('claim-123');
-      expect(submission?.from).toBe(mockUserAddress);
-      expect(submission?.to).toBe(mockContractAddress);
+      expect(error).toBeDefined();
+      expect(error?.message).toMatch(/no synthetic transaction hash|writeContract/i);
+      expect(result.current.lastSubmission).toBeNull();
+      expect(result.current.error).toMatch(/writeContract|synthetic/i);
     });
 
-    it('should track last submission', async () => {
+    it('fails closed when the wallet is on the wrong chain', async () => {
+      (wagmi.useChainId as jest.Mock).mockReturnValue(1);
+
       const { result } = renderHook(() =>
         useSettlementSubmission({
           contractAddress: mockContractAddress,
@@ -157,22 +162,26 @@ describe('useSettlementSubmission', () => {
       );
 
       const action: SettlementAction = {
-        type: 'SETTLE_APPEAL',
-        claimId: 'claim-456',
-        disputeId: 'dispute-789',
+        type: 'SETTLE_PROVISIONAL',
+        claimId: 'claim-123',
         isCallable: true,
       };
 
+      let error: Error | undefined;
       await act(async () => {
-        await result.current.submitSettlement(action);
+        try {
+          await result.current.submitSettlement(action);
+        } catch (e) {
+          error = e as Error;
+        }
       });
 
-      expect(result.current.lastSubmission).toBeDefined();
-      expect(result.current.lastSubmission?.type).toBe('SETTLE_APPEAL');
-      expect(result.current.lastSubmission?.disputeId).toBe('dispute-789');
+      expect(error).toBeDefined();
+      expect(error?.message).toMatch(/Wrong network|Unsupported network|readiness/i);
+      expect(result.current.lastSubmission).toBeNull();
     });
 
-    it('should handle submission errors', async () => {
+    it('rejects non-callable actions without inventing a submission', async () => {
       const { result } = renderHook(() =>
         useSettlementSubmission({
           contractAddress: mockContractAddress,
@@ -197,6 +206,7 @@ describe('useSettlementSubmission', () => {
 
       expect(error).toBeDefined();
       expect(result.current.error).toContain('Already settled');
+      expect(result.current.lastSubmission).toBeNull();
     });
   });
 

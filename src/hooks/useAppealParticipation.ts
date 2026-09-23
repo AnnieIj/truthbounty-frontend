@@ -16,6 +16,7 @@ import {
   AppealParticipationContext,
   AppealParticipationStatus,
 } from '@/app/types/appeal';
+import { evaluateWriteTarget } from '@/lib/contracts/write-gate';
 
 interface UseAppealParticipationConfig {
   contractAddress: string;
@@ -76,7 +77,8 @@ export function useAppealParticipation(
   const [isSimulating, setIsSimulating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [lastTransaction, setLastTransaction] = useState<AppealParticipationTransaction | null>(null);
+  // Only populated after a real wallet write returns a hash (V2-FE-100).
+  const [lastTransaction] = useState<AppealParticipationTransaction | null>(null);
 
   /**
    * Encode appeal participation call data
@@ -322,33 +324,22 @@ export function useAppealParticipation(
           throw new Error(simulation.error || 'Simulation failed');
         }
 
-        // In production, this would:
-        // 1. Use Wagmi's useWriteContract hook
-        // 2. Send transaction via user's connected wallet
-        // 3. Return transaction hash immediately (don't wait for confirmation)
-        // 4. Let useStateReconciliation handle confirmation tracking
+        // V2-FE-100 readiness gate — fail closed before any submission attempt
+        const gate = evaluateWriteTarget({
+          account: userAddress ?? null,
+          chainId: currentChainId,
+          expectedChainId,
+          targetAddress: contractAddress,
+        });
+        if (!gate.ready) {
+          throw new Error(gate.reason ?? 'Wallet is not ready for appeal participation.');
+        }
 
-        // Mock transaction submission
-        await new Promise((resolve) => setTimeout(resolve, 500)); // Simulate network delay
-
-        const mockTxHash = `0x${Math.random().toString(16).slice(2).padEnd(64, '0')}`;
-        const timestamp = new Date().toISOString();
-
-        const transaction: AppealParticipationTransaction = {
-          transactionHash: mockTxHash,
-          from: userAddress!,
-          to: contractAddress,
-          status: 'PENDING',
-          appealId: context.snapshot.appealId,
-          claimId: context.snapshot.claimId,
-          disputeId: context.snapshot.disputeId,
-          decision,
-          stakeAmount,
-          timestamp,
-        };
-
-        setLastTransaction(transaction);
-        return transaction;
+        // Never fabricate a transaction hash. Participation requires a real
+        // wallet writeContract call; without it, fail closed (V2-FE-100).
+        throw new Error(
+          'Appeal participation requires wallet writeContract integration; no synthetic transaction hash is emitted.',
+        );
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : 'Submission failed';
         setError(errorMsg);
@@ -357,7 +348,7 @@ export function useAppealParticipation(
         setIsSubmitting(false);
       }
     },
-    [userAddress, contractAddress, validateParticipation, simulateParticipation]
+    [userAddress, contractAddress, currentChainId, expectedChainId, validateParticipation, simulateParticipation]
   );
 
   return {
