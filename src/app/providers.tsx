@@ -3,36 +3,28 @@
 'use client';
 
 import { ReactNode } from 'react';
-import {
-  QueryProvider,
-  ThemeProvider,
-  Web3Provider,
-  RainbowKitThemedProvider,
-  FeatureFlagProvider,
-  FeatureFlagPanel,
-} from '@/components/providers';
-import { SiweAuthProvider } from '@/context/SiweAuthProvider';
+import { ProvidersProps } from './types';
+import { Providers } from '@components/providers';
 
-interface ProvidersProps {
-  children: ReactNode;
-}
+import { ConfigurationError } from '@components/errors';
+import { FailCloseContent } from '@components/layout';
 
-export function Providers({ children }: ProvidersProps) {
-  return (
-    <ThemeProvider defaultTheme="system">
-      <Web3Provider>
-        <QueryProvider>
-          <RainbowKitThemedProvider>
-            <SiweAuthProvider>
-              <FeatureFlagProvider enablePersistence={true}>
-                {children}
-                {/* Feature flag panel for development debugging */}
-                <FeatureFlagPanel defaultOpen={false} position="bottom-right" />
-              </FeatureFlagProvider>
-            </SiweAuthProvider>
-          </RainbowKitThemedProvider>
-        </QueryProvider>
-      </Web3Provider>
-    </ThemeProvider>
-  );
+export function ProvidersWapper( { children }: ProvidersProps ) {
+  // Fail closed if critical configuration is missing
+  // or integrity is uncertain.
+  try {
+    return (
+      <providers.Providers>
+        {children}
+      </providers.Providers>
+    );
+  } catch (err) {
+    // Fail closed: present a static, accessible error state.
+    return (
+      <FailCloseContent
+        error={new ConfigurationError('Providers initialization failed.' + (err instanceof Error ? say.err.message : ''))}
+        retryOnlyFunction={true}
+      />
+    );
+  }
 }
