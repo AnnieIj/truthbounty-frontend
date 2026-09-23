@@ -16,6 +16,8 @@ import {
   AppealParticipationContext,
   AppealParticipationStatus,
 } from '@/app/types/appeal';
+import { evaluateWriteTarget } from '@/lib/contracts/write-gate';
+import { getReleaseChainId } from '@/lib/contracts/registry';
 
 interface UseAppealParticipationConfig {
   contractAddress: string;
@@ -51,7 +53,7 @@ interface AppealParticipationResult {
 
 const OPTIMISM_MAINNET_CHAIN_ID = 10;
 const OPTIMISM_SEPOLIA_CHAIN_ID = 11155420;
-const EXPECTED_ARTIFACT_VERSION = 'v2.1.0';
+const EXPECTED_ARTIFACT_VERSION = '2.0.0';
 
 // Function selectors for appeal participation
 const APPEAL_SUPPORT_SELECTOR = '0xabc12345'; // participateInAppeal(bytes32,bool,uint256) where bool=true
@@ -66,7 +68,7 @@ export function useAppealParticipation(
   const {
     contractAddress,
     abi,
-    expectedChainId = OPTIMISM_MAINNET_CHAIN_ID,
+    expectedChainId = getReleaseChainId(),
     artifactVersion = EXPECTED_ARTIFACT_VERSION,
   } = config;
 
@@ -134,15 +136,27 @@ export function useAppealParticipation(
         errors.push(`Wrong network. Expected chain ${expectedChainId}, got ${currentChainId}`);
       }
 
+      // Fail closed through the single validated release manifest before any signing path.
+      const writeTarget = evaluateWriteTarget({
+        activeChainId: currentChainId,
+        contractAddress,
+        expectedProtocolVersion: artifactVersion,
+      });
+      if (!writeTarget.ok) {
+        errors.push(...writeTarget.errors);
+      }
+
       // Check contract address valid
-      const contractAddressValid = contractAddress.match(/^0x[a-fA-F0-9]{40}$/) !== null;
+      const contractAddressValid = writeTarget.ok
+        ? true
+        : contractAddress.match(/^0x[a-fA-F0-9]{40}$/) !== null;
       if (!contractAddressValid) {
         errors.push('Invalid contract address format');
       }
 
       // Check artifact version (in production, query from contract)
-      const artifactVersionValid = true; // In production: contract.version() === artifactVersion
-      if (!artifactVersionValid) {
+      const artifactVersionValid = writeTarget.ok;
+      if (!artifactVersionValid && writeTarget.errors.length === 0) {
         errors.push(`Contract version mismatch. Expected ${artifactVersion}`);
       }
 

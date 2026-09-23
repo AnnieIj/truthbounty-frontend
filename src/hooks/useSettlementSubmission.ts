@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import { useAccount } from 'wagmi';
+import { useAccount, useChainId } from 'wagmi';
 import { encodeFunctionData } from 'viem';
 import {
   SettlementAction,
@@ -12,11 +12,14 @@ import {
   getContractAbi,
   getContractAddress,
   getProtocolVersion,
+  getReleaseChainId,
 } from '@/lib/contracts/registry';
+import { evaluateWriteTarget } from '@/lib/contracts/write-gate';
 
 interface UseSettlementSubmissionConfig {
   contractAddress?: string;
   abi?: readonly unknown[];
+  expectedChainId?: number;
 }
 
 const SETTLEMENT_FUNCTIONS: Record<string, 'settleProvisional' | 'settleAppeal' | 'finalize'> = {
@@ -44,6 +47,8 @@ export function useSettlementSubmission(
   const abi = config.abi ?? getContractAbi('TruthBountyWeighted');
   const artifactVersion = getProtocolVersion();
   const { address: userAddress } = useAccount();
+  const activeChainId = useChainId();
+  const expectedChainId = config.expectedChainId ?? getReleaseChainId();
 
   const [isSimulating, setIsSimulating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -94,6 +99,19 @@ export function useSettlementSubmission(
       return 'Wallet not connected';
     }
 
+    if (expectedChainId !== undefined && activeChainId !== expectedChainId) {
+      return `Wrong network. Expected chain ${expectedChainId}, got ${activeChainId}`;
+    }
+
+    const writeTarget = evaluateWriteTarget({
+      activeChainId,
+      contractAddress,
+      expectedProtocolVersion: artifactVersion,
+    });
+    if (!writeTarget.ok) {
+      return writeTarget.errors.join('; ');
+    }
+
     if (!contractAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
       return 'Invalid contract address';
     }
@@ -103,7 +121,7 @@ export function useSettlementSubmission(
     }
 
     return null;
-  }, [userAddress, contractAddress]);
+  }, [userAddress, contractAddress, activeChainId, expectedChainId, artifactVersion]);
 
   /**
    * Simulate settlement transaction
