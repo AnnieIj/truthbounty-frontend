@@ -238,15 +238,20 @@ a {
     background-color: rgba(239, 68, 68, 0.1);
   }
 
-  button:hover {
-    transform: scale(1.02);
-    transition: transform 0.2s ease;
+  @media (prefers-reduced-motion: no-preference) {
+    button:hover {
+      transform: scale(1.02);
+      transition: transform 0.2s ease;
+    }
+
+    input:focus, textarea:focus, select:focus, button:focus {
+      transform: scale(1.01);
+    }
   }
 
   input:focus, textarea:focus, select:focus, button:focus {
     outline: 2px solid #5b5bf6;
     outline-offset: 2px;
-    transform: scale(1.01);
   }
 
   a {
@@ -357,13 +362,69 @@ select:focus-visible,
 
   .animate-pulse,
   .animate-spin,
+  .animate-bounce,
+  .animate-ping,
   .animate-fadeIn,
   .animate-shimmer {
     animation: none !important;
   }
 
+  /* Prevent transform-based motion on interactive elements */
+  button:hover,
+  button:focus,
+  a:hover,
+  a:focus,
+  input:focus,
+  textarea:focus,
+  select:focus {
+    transform: none !important;
+  }
+
   html {
     scroll-behavior: auto;
+  }
+}
+
+/* ─── High-contrast mode ──────────────────────────────────────────────────── */
+
+@media (prefers-contrast: more) {
+  :root {
+    --border: oklch(0.4 0 0);
+    --ring: oklch(0.2 0 0);
+    --muted-foreground: oklch(0.3 0 0);
+  }
+
+  .dark {
+    --border: oklch(0.7 0 0);
+    --ring: oklch(0.9 0 0);
+    --muted-foreground: oklch(0.75 0 0);
+  }
+
+  /* Strengthen all focus rings */
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible,
+  [tabindex]:focus-visible {
+    outline-width: 3px !important;
+    outline-offset: 3px !important;
+  }
+
+  /* Ensure skip link is clearly visible when focused */
+  .skip-link:focus {
+    outline: 3px solid currentColor;
+    outline-offset: 2px;
+  }
+
+  /* Skeleton elements should use a solid background rather than gradient shimmer */
+  .animate-shimmer {
+    background: oklch(0.4 0 0) !important;
+    animation: none !important;
+  }
+
+  .dark .animate-shimmer {
+    background: oklch(0.6 0 0) !important;
   }
 }
 
