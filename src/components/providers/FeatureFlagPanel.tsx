@@ -80,7 +80,13 @@ export function FeatureFlagPanel({
         <span className="text-lg">🚩</span>
         <span className="hidden sm:inline">Feature Flags</span>
         {hasOverrides && (
-          <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
+          /* V2-FE-071 — decorative override dot. animate-pulse is stripped by
+             the CSS reduced-motion layer, so the white dot stays as a static
+             cue; the amber button color carries the meaning. */
+          <span
+            className="w-2 h-2 bg-white rounded-full animate-pulse"
+            aria-hidden="true"
+          />
         )}
       </button>
       

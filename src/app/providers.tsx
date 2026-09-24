@@ -13,6 +13,7 @@ import {
   SessionLifecycleProvider,
 } from '@/components/providers';
 import { SiweAuthProvider } from '@/context/SiweAuthProvider';
+import ErrorBoundary from '@/components/common/ErrorBoundary';
 
 interface ProvidersProps {
   children: ReactNode;
@@ -25,13 +26,15 @@ export function Providers({ children }: ProvidersProps) {
         <QueryProvider>
           <RainbowKitThemedProvider>
             <SiweAuthProvider>
-              <SessionLifecycleProvider>
-                <FeatureFlagProvider enablePersistence={true}>
-                  {children}
-                  {/* Feature flag panel for development debugging */}
-                  <FeatureFlagPanel defaultOpen={false} position="bottom-right" />
-                </FeatureFlagProvider>
-              </SessionLifecycleProvider>
+              <FeatureFlagProvider enablePersistence={true}>
+                <ErrorBoundary>
+                  <SessionLifecycleProvider>
+                    {children}
+                    {/* Feature flag panel for development debugging */}
+                    <FeatureFlagPanel defaultOpen={false} position="bottom-right" />
+                  </SessionLifecycleProvider>
+                </ErrorBoundary>
+              </FeatureFlagProvider>
             </SiweAuthProvider>
           </RainbowKitThemedProvider>
         </QueryProvider>
