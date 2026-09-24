@@ -53,3 +53,8 @@ Invariants specific to reorg UX:
 - Account or chain changes invalidate incompatible prepared intent.
 - UI and cache reconcile to the canonical replacement or reorg outcome.
 - Forms preserve user-authored content after recoverable failure.
+
+## RPC and API Fallback
+
+For RPC provider health, API staleness, and chain integrity states, see
+[RPC_API_FALLBACK.md](./RPC_API_FALLBACK.md).
