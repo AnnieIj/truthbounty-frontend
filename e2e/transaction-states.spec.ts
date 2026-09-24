@@ -5,6 +5,11 @@ import { test, expect } from '@playwright/test';
  * (pending / confirming / confirmed / failed) against the production-excluded
  * E2E harness route, asserting each state is presented accessibly and that the
  * failure state exposes its error and a retry affordance.
+ *
+ * Also covers appeal rounds and escalation: an appeal round must surface its
+ * round number, deadline, and escalation status from canonical chain/API
+ * projection state, and must never fabricate an outcome when the round is
+ * still open or the escalation is unresolved.
  */
 test.describe('transaction states', () => {
   test.beforeEach(async ({ page }) => {
@@ -78,5 +83,59 @@ test.describe('transaction states', () => {
     for (const label of ['Pending', 'Confirming', 'Confirmed', 'Failed']) {
       await expect(summary.getByText(label, { exact: true })).toBeVisible();
     }
+  });
+
+  test('renders an open appeal round without fabricating an outcome', async ({
+    page,
+  }) => {
+    const appeal = page.getByRole('region', { name: /appeal round/i });
+    await expect(appeal).toBeVisible();
+    await expect(
+      appeal.getByText('Appeal round 1', { exact: true }),
+    ).toBeVisible();
+    await expect(appeal.getByText('Open', { exact: true })).toBeVisible();
+    await expect(
+      appeal.getByText(/deadline/i),
+    ).toBeVisible();
+    // An open round must not present a resolved outcome.
+    await expect(
+      appeal.getByText(/upheld|overturned/i),
+    ).toHaveCount(0);
+  });
+
+  test('renders an escalated appeal round with its escalation status', async ({
+    page,
+  }) => {
+    const appeal = page.getByRole('region', { name: /appeal round/i });
+    await expect(
+      appeal.getByText('Appeal round 2', { exact: true }),
+    ).toBeVisible();
+    await expect(
+      appeal.getByText('Escalated', { exact: true }),
+    ).toBeVisible();
+    await expect(
+      appeal.getByText(/escalation pending/i),
+    ).toBeVisible();
+  });
+
+  test('renders a resolved appeal round from canonical state', async ({
+    page,
+  }) => {
+    const appeal = page.getByRole('region', { name: /appeal round/i });
+    await expect(
+      appeal.getByText('Appeal round 3', { exact: true }),
+    ).toBeVisible();
+    await expect(appeal.getByText('Resolved', { exact: true })).toBeVisible();
+    await expect(appeal.getByText(/upheld/i)).toBeVisible();
+  });
+
+  test('fails closed when appeal round data is stale', async ({ page }) => {
+    const appeal = page.getByRole('region', { name: /appeal round/i });
+    await expect(
+      appeal.getByText(/stale/i),
+    ).toBeVisible();
+    await expect(
+      appeal.getByRole('button', { name: /refresh/i }),
+    ).toBeVisible();
   });
 });

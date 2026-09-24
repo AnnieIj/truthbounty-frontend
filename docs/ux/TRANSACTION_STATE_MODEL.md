@@ -45,6 +45,42 @@ Invariants specific to reorg UX:
   control is keyboard reachable; display hashes are truncated with the full
   value available via the explorer link.
 
+### V2-FE-115 — Appeal rounds and escalation
+
+Appeal rounds and escalation are read from canonical chain/API projections and
+never inferred or fabricated by the client. The UI distinguishes the round
+lifecycle from the underlying transaction lifecycle above.
+
+| Appeal state | Meaning | Required UX |
+|---|---|---|
+| `appealUnavailable` | No appealable round, or window closed | Explain why; no appeal action |
+| `appealEligible` | Canonical round open and caller eligible | Show round, deadline, bond, and prerequisites |
+| `appealBondRequired` | Bond/allowance insufficient | Explain separate approval/bond transaction |
+| `appealAwaitingSignature` | Wallet request open | Show exact action/network/value |
+| `appealRejected` | User rejected request | Preserve form; safe retry |
+| `appealSubmitted` | Hash returned, not yet confirmed | Link hash; warn not final |
+| `appealConfirming` | Canonical receipt observed | Show confirmations/finality status |
+| `appealConfirmed` | Receipt succeeded | Refresh round projection; distinguish from finality |
+| `appealFinalized` | Finality policy satisfied | Show durable round outcome |
+| `appealReverted` | Receipt failed | Decode safe error and recovery |
+| `appealReorged` | Observed round/receipt orphaned | Withdraw outcome; reconcile via reorg surface |
+| `escalationPending` | Escalation submitted, awaiting canonical resolution | Show pending; never present a resolved outcome |
+| `escalationResolved` | Canonical projection reports resolution | Show resolved outcome from projection only |
+| `appealConfigurationError` | Chain/address/ABI mismatch | Fail closed; no signature action |
+
+Invariants specific to appeal/escalation UX:
+
+- Round number, deadline, bond, eligibility, and escalation outcome come only
+  from canonical contract/API projections; the client never invents them.
+- A timer or local clock cannot open, close, or resolve an appeal round.
+- Escalation is never shown as resolved until the canonical projection reports
+  it; pending escalation is always visibly pending.
+- Appeal transactions reuse the shared transaction states above; a reorged or
+  replaced appeal transaction withdraws any success notice and reconciles via
+  the reorg/replacement surface.
+- Unsupported chains, missing configuration, or stale critical round data fail
+  closed with no signature action.
+
 ## Invariants
 
 - A timer cannot transition a transaction to success.
