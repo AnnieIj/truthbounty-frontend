@@ -8,7 +8,7 @@
     "verify-performance-budgets": "node scripts/verify-performance-budgets.mjs",
     "prebuild": "node scripts/verify-artifacts.mjs",
     "build": "next build",
-    "postbuild": "node scripts/verify-performance-budgets.mjs",
+    "postbuild": "node scripts/verify-performance-budgets.mjs && node scripts/verify-staging-smoke.mjs",
     "start": "next start",
     "lint": "eslint src",
     "type-check": "tsc --noEmit",
@@ -16,7 +16,8 @@
     "test:e2e": "playwright test",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
-    "test:a11y": "jest --runInBand src/__tests__/accessibility"
+    "test:a11y": "jest --runInBand src/__tests__/accessibility",
+    "verify:staging-smoke": "node scripts/verify-staging-smoke.mjs"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.3.3",
