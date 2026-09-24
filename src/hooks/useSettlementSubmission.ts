@@ -173,11 +173,12 @@ export function useSettlementSubmission(
           throw new Error(simulation.error || 'Simulation failed');
         }
 
-        const mockTxHash = `0x${Math.random().toString(16).slice(2).padEnd(64, '0')}`;
+        throw new Error('Settlement submission is unavailable until a canonical wallet submission flow is connected.');
+
         const timestamp = new Date().toISOString();
 
         const submission: SettlementSubmission = {
-          transactionHash: mockTxHash,
+          transactionHash: '',
           from: userAddress!,
           to: contractAddress,
           status: 'pending',
