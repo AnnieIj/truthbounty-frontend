@@ -124,11 +124,33 @@ export interface AppealWalletPosition {
  * Complete appeal participation context
  * Combines snapshot, deadline, bounds, and position
  */
+/**
+ * Canonical round / bond / deadline progression for an appeal.
+ * Driven by on-chain getAppealRound — never by client timers alone.
+ */
+export interface AppealRoundProgressionView {
+  appealId: string;
+  roundNumber: number;
+  requiredBond: string;
+  deadlineSeconds: number;
+  timeRemainingSeconds: number;
+  supportStake: string;
+  opposeStake: string;
+  state: 'NOT_STARTED' | 'ACTIVE' | 'ENDED' | 'SETTLED' | 'UNKNOWN';
+  isActive: boolean;
+  hasEnded: boolean;
+  roundMatchesExpected: boolean;
+  expectedRound: number;
+}
+
 export interface AppealParticipationContext {
   snapshot: AppealSnapshot;
   deadline: AppealDeadline;
   stakeBounds: AppealStakeBounds;
   walletPosition: AppealWalletPosition;
+
+  /** Canonical round progression when available from the protocol. */
+  roundProgression?: AppealRoundProgressionView;
   
   // Computed eligibility
   isEligible: boolean;
@@ -161,6 +183,8 @@ export interface AppealParticipationTransaction {
   disputeId: string;
   decision: AppealDecision;
   stakeAmount: string; // Wei amount as string
+  /** Round number the write targeted (stale-round guard). */
+  expectedRound?: number;
   
   timestamp: string; // ISO 8601
   blockNumber?: number;
@@ -182,6 +206,7 @@ export interface AppealSimulationResult {
   projectedState?: {
     newSupportTotal: string;
     newOpposeTotal: string;
+    /** Only present when derived from protocol — never fabricated. */
     potentialReward?: string;
     riskAmount: string;
   };
@@ -213,6 +238,8 @@ export interface AppealValidation {
     stakeWithinBounds: boolean;
     contractAddressValid: boolean;
     artifactVersionValid: boolean;
+    /** False when expected round diverges from on-chain round. */
+    roundCurrent: boolean;
   };
 }
 

@@ -1,27 +1,51 @@
 /**
- * Hook for appeal participation transaction encoding and submission
- * Handles simulation, validation, and submission of appeal votes
+ * V2-FE-059 — Appeal participation transaction encoding and submission.
+ *
+ * Replaces mock simulation / fabricated tx hashes with Wagmi writeContract +
+ * Viem eth_call simulation. Round/bond/deadline changes are driven by
+ * canonical on-chain reads; stale-round participation is rejected.
  */
 
 'use client';
 
-import { useCallback, useState } from 'react';
-import { useAccount, useChainId } from 'wagmi';
+import { useCallback, useMemo, useState } from 'react';
+import {
+  useAccount,
+  useChainId,
+  usePublicClient,
+  useWriteContract,
+} from 'wagmi';
+import { maxUint256 } from 'viem';
 import {
   AppealDecision,
-  AppealParticipationPayload,
   AppealParticipationTransaction,
   AppealSimulationResult,
   AppealValidation,
   AppealParticipationContext,
-  AppealParticipationStatus,
 } from '@/app/types/appeal';
+import {
+  APPEAL_ARTIFACT_VERSION,
+  appealErc20Abi,
+  appealParticipationAbi,
+  getAppealArtifact,
+} from '@/config/protocol/appeal-artifact';
+import {
+  buildAppealRoundProgression,
+  checkStaleRound,
+  encodeParticipateInAppeal,
+  projectStakeTotals,
+  toAppealIdBytes32,
+  type AppealRoundProgression,
+  type OnChainAppealRound,
+} from '@/lib/appeal/round-progression';
 
 interface UseAppealParticipationConfig {
-  contractAddress: string;
-  abi?: unknown[]; // Contract ABI for encoding
+  /** Optional override; when omitted the pinned artifact address is used. */
+  contractAddress?: string;
   expectedChainId?: number;
-  artifactVersion?: string; // Contract version for safety
+  artifactVersion?: string;
+  /** Local expected round — must match on-chain or participation fails closed. */
+  expectedRound?: number;
 }
 
 interface AppealParticipationResult {
@@ -30,19 +54,27 @@ interface AppealParticipationResult {
     decision: AppealDecision,
     stakeAmount: string
   ) => Promise<AppealSimulationResult>;
-  
+
   submitParticipation: (
     context: AppealParticipationContext,
     decision: AppealDecision,
     stakeAmount: string
   ) => Promise<AppealParticipationTransaction>;
-  
+
   validateParticipation: (
     context: AppealParticipationContext,
     decision: AppealDecision,
     stakeAmount: string
   ) => AppealValidation;
-  
+
+  refreshRoundProgression: (
+    appealId: string,
+    expectedRound?: number
+  ) => Promise<AppealRoundProgression | null>;
+
+  roundProgression: AppealRoundProgression | null;
+  artifactDeployed: boolean;
+  artifactDisabledReasons: string[];
   isSimulating: boolean;
   isSubmitting: boolean;
   error: string | null;
@@ -50,63 +82,131 @@ interface AppealParticipationResult {
 }
 
 const OPTIMISM_MAINNET_CHAIN_ID = 10;
-const OPTIMISM_SEPOLIA_CHAIN_ID = 11155420;
-const EXPECTED_ARTIFACT_VERSION = 'v2.1.0';
 
-// Function selectors for appeal participation
-const APPEAL_SUPPORT_SELECTOR = '0xabc12345'; // participateInAppeal(bytes32,bool,uint256) where bool=true
-const APPEAL_OPPOSE_SELECTOR = '0xdef67890';  // participateInAppeal(bytes32,bool,uint256) where bool=false
+function extractErrorMessage(err: unknown): string {
+  if (err && typeof err === 'object') {
+    const candidate = err as { shortMessage?: unknown; message?: unknown };
+    if (typeof candidate.shortMessage === 'string') return candidate.shortMessage;
+    if (typeof candidate.message === 'string') return candidate.message;
+  }
+  return 'Transaction failed';
+}
+
+function parseRoundTuple(data: unknown): OnChainAppealRound | null {
+  if (!data || typeof data !== 'object') return null;
+  const row = data as Record<string, unknown> & { [key: number]: unknown };
+  const roundNumber = (row.roundNumber ?? row[0]) as bigint | undefined;
+  const requiredBond = (row.requiredBond ?? row[1]) as bigint | undefined;
+  const deadline = (row.deadline ?? row[2]) as bigint | undefined;
+  const supportStake = (row.supportStake ?? row[3]) as bigint | undefined;
+  const opposeStake = (row.opposeStake ?? row[4]) as bigint | undefined;
+  const state = (row.state ?? row[5]) as number | bigint | undefined;
+  const claimId = (row.claimId ?? row[6]) as `0x${string}` | undefined;
+  if (
+    typeof roundNumber !== 'bigint' ||
+    typeof requiredBond !== 'bigint' ||
+    typeof deadline !== 'bigint' ||
+    typeof supportStake !== 'bigint' ||
+    typeof opposeStake !== 'bigint' ||
+    claimId === undefined
+  ) {
+    return null;
+  }
+  return {
+    roundNumber,
+    requiredBond,
+    deadline,
+    supportStake,
+    opposeStake,
+    state: typeof state === 'bigint' ? Number(state) : Number(state ?? 0),
+    claimId,
+  };
+}
 
 /**
- * Hook for encoding and submitting appeal participation transactions
+ * Hook for encoding and submitting appeal participation transactions via
+ * Wagmi/Viem. Fail closed on unsupported chain, missing artifact, stale round,
+ * or unconfirmed simulation.
  */
 export function useAppealParticipation(
-  config: UseAppealParticipationConfig
+  config: UseAppealParticipationConfig = {}
 ): AppealParticipationResult {
   const {
-    contractAddress,
-    abi,
+    contractAddress: contractAddressOverride,
     expectedChainId = OPTIMISM_MAINNET_CHAIN_ID,
-    artifactVersion = EXPECTED_ARTIFACT_VERSION,
+    artifactVersion = APPEAL_ARTIFACT_VERSION,
+    expectedRound: expectedRoundConfig = 1,
   } = config;
 
   const { address: userAddress, isConnected } = useAccount();
   const currentChainId = useChainId();
+  const publicClient = usePublicClient();
+  const { writeContractAsync } = useWriteContract();
+
+  const artifact = useMemo(
+    () => getAppealArtifact(expectedChainId),
+    [expectedChainId]
+  );
+
+  const contractAddress =
+    contractAddressOverride &&
+    /^0x[a-fA-F0-9]{40}$/.test(contractAddressOverride)
+      ? (contractAddressOverride.toLowerCase() as `0x${string}`)
+      : artifact.isDeployed
+        ? artifact.addresses.appealParticipation
+        : ('0x0000000000000000000000000000000000000000' as `0x${string}`);
 
   const [isSimulating, setIsSimulating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [lastTransaction, setLastTransaction] = useState<AppealParticipationTransaction | null>(null);
+  const [lastTransaction, setLastTransaction] =
+    useState<AppealParticipationTransaction | null>(null);
+  const [roundProgression, setRoundProgression] =
+    useState<AppealRoundProgression | null>(null);
 
-  /**
-   * Encode appeal participation call data
-   */
-  const encodeParticipationCall = useCallback(
-    (appealId: string, decision: AppealDecision, stakeAmount: string): string => {
-      // In production, this would use Viem to encode:
-      // import { encodeFunctionData } from 'viem'
-      // const data = encodeFunctionData({
-      //   abi: contractAbi,
-      //   functionName: 'participateInAppeal',
-      //   args: [appealId, decision === 'SUPPORT', BigInt(stakeAmount)]
-      // })
-
-      // Mock encoding for now
-      const selector = decision === 'SUPPORT' ? APPEAL_SUPPORT_SELECTOR : APPEAL_OPPOSE_SELECTOR;
-      
-      // Encode: appealId (bytes32) + decision (bool as uint256) + stakeAmount (uint256)
-      const encodedAppealId = appealId.replace(/[^0-9a-fA-F]/g, '').padStart(64, '0');
-      const encodedDecision = (decision === 'SUPPORT' ? '1' : '0').padStart(64, '0');
-      const encodedStake = BigInt(stakeAmount).toString(16).padStart(64, '0');
-
-      return selector + encodedAppealId + encodedDecision + encodedStake;
+  const refreshRoundProgression = useCallback(
+    async (
+      appealId: string,
+      expectedRound = expectedRoundConfig
+    ): Promise<AppealRoundProgression | null> => {
+      if (!publicClient || !artifact.isDeployed) {
+        setRoundProgression(null);
+        return null;
+      }
+      try {
+        const appealIdBytes = toAppealIdBytes32(appealId);
+        const raw = await publicClient.readContract({
+          address: contractAddress,
+          abi: appealParticipationAbi,
+          functionName: 'getAppealRound',
+          args: [appealIdBytes],
+        });
+        const round = parseRoundTuple(raw);
+        if (!round) {
+          setRoundProgression(null);
+          return null;
+        }
+        const progression = buildAppealRoundProgression({
+          appealId: appealIdBytes,
+          round,
+          expectedRound,
+        });
+        setRoundProgression(progression);
+        return progression;
+      } catch (err) {
+        setError(extractErrorMessage(err));
+        setRoundProgression(null);
+        return null;
+      }
     },
-    [abi]
+    [
+      publicClient,
+      artifact.isDeployed,
+      contractAddress,
+      expectedRoundConfig,
+    ]
   );
 
-  /**
-   * Validate appeal participation
-   */
   const validateParticipation = useCallback(
     (
       context: AppealParticipationContext,
@@ -116,43 +216,63 @@ export function useAppealParticipation(
       const errors: string[] = [];
       const warnings: string[] = [];
 
-      // Check appeal is active
-      const appealActive = context.deadline.isActive && !context.deadline.hasEnded;
+      const appealActive =
+        context.deadline.isActive && !context.deadline.hasEnded;
       if (!appealActive) {
         errors.push('Appeal period has ended or has not started');
       }
 
-      // Check wallet connected
       const walletConnected = isConnected && !!userAddress;
       if (!walletConnected) {
         errors.push('Wallet not connected');
       }
 
-      // Check correct chain
       const correctChain = currentChainId === expectedChainId;
       if (!correctChain) {
-        errors.push(`Wrong network. Expected chain ${expectedChainId}, got ${currentChainId}`);
+        errors.push(
+          `Wrong network. Expected chain ${expectedChainId}, got ${currentChainId}`
+        );
       }
 
-      // Check contract address valid
-      const contractAddressValid = contractAddress.match(/^0x[a-fA-F0-9]{40}$/) !== null;
+      const contractAddressValid =
+        contractAddress.match(/^0x[a-fA-F0-9]{40}$/) !== null &&
+        contractAddress !== '0x0000000000000000000000000000000000000000';
       if (!contractAddressValid) {
         errors.push('Invalid contract address format');
       }
 
-      // Check artifact version (in production, query from contract)
-      const artifactVersionValid = true; // In production: contract.version() === artifactVersion
+      const artifactVersionValid =
+        artifactVersion === APPEAL_ARTIFACT_VERSION &&
+        (artifact.isDeployed || Boolean(contractAddressOverride));
       if (!artifactVersionValid) {
-        errors.push(`Contract version mismatch. Expected ${artifactVersion}`);
+        errors.push(
+          `Contract version mismatch or protocol not deployed. Expected ${APPEAL_ARTIFACT_VERSION}`
+        );
+        if (artifact.disabledReasons.length > 0) {
+          errors.push(...artifact.disabledReasons);
+        }
       }
 
-      // Check not already participated
       const notAlreadyParticipated = !context.walletPosition.hasParticipated;
       if (!notAlreadyParticipated) {
         errors.push('You have already participated in this appeal');
       }
 
-      // Validate stake amount
+      const expectedRound =
+        context.roundProgression?.expectedRound ??
+        context.roundProgression?.roundNumber ??
+        expectedRoundConfig;
+      const onChainRound =
+        context.roundProgression?.roundNumber ?? expectedRound;
+      const stale = checkStaleRound(onChainRound, expectedRound);
+      const roundCurrent = !stale.isStale;
+      if (!roundCurrent) {
+        errors.push(
+          stale.reason ??
+            'Stale round — appeal escalated; refresh before participating'
+        );
+      }
+
       let sufficientBalance = false;
       let stakeWithinBounds = false;
 
@@ -161,7 +281,7 @@ export function useAppealParticipation(
         const minStakeBigInt = BigInt(context.stakeBounds.minStake);
         const maxStakeBigInt = context.stakeBounds.maxStake
           ? BigInt(context.stakeBounds.maxStake)
-          : BigInt('0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff');
+          : maxUint256;
         const balanceBigInt = BigInt(context.walletPosition.currentBalance);
 
         sufficientBalance = balanceBigInt >= stakeBigInt;
@@ -169,31 +289,48 @@ export function useAppealParticipation(
           errors.push('Insufficient balance for stake amount');
         }
 
-        stakeWithinBounds = stakeBigInt >= minStakeBigInt && stakeBigInt <= maxStakeBigInt;
+        stakeWithinBounds =
+          stakeBigInt >= minStakeBigInt && stakeBigInt <= maxStakeBigInt;
         if (stakeBigInt < minStakeBigInt) {
-          errors.push(`Stake amount below minimum of ${context.stakeBounds.minStake} wei`);
+          errors.push(
+            `Stake amount below minimum of ${context.stakeBounds.minStake} wei`
+          );
         }
         if (stakeBigInt > maxStakeBigInt) {
-          errors.push(`Stake amount exceeds maximum of ${context.stakeBounds.maxStake} wei`);
+          errors.push(
+            `Stake amount exceeds maximum of ${context.stakeBounds.maxStake} wei`
+          );
         }
 
-        // Warnings for suboptimal stakes
         if (context.stakeBounds.recommendedStake) {
-          const recommendedBigInt = BigInt(context.stakeBounds.recommendedStake);
+          const recommendedBigInt = BigInt(
+            context.stakeBounds.recommendedStake
+          );
           if (stakeBigInt < recommendedBigInt / BigInt(2)) {
-            warnings.push('Stake amount is significantly below recommended amount');
+            warnings.push(
+              'Stake amount is significantly below recommended amount'
+            );
           }
         }
-      } catch (err) {
+
+        const requiredBond = context.roundProgression?.requiredBond
+          ? BigInt(context.roundProgression.requiredBond)
+          : null;
+        if (requiredBond !== null && stakeBigInt < requiredBond) {
+          errors.push(
+            `Stake amount below required bond of ${requiredBond.toString()} wei`
+          );
+          stakeWithinBounds = false;
+        }
+      } catch {
         errors.push('Invalid stake amount format');
       }
 
-      // Check decision is valid
       if (decision !== 'SUPPORT' && decision !== 'OPPOSE') {
         errors.push('Invalid decision. Must be SUPPORT or OPPOSE');
       }
 
-      const validation: AppealValidation = {
+      return {
         isValid: errors.length === 0,
         errors,
         warnings,
@@ -206,17 +343,24 @@ export function useAppealParticipation(
           stakeWithinBounds,
           contractAddressValid,
           artifactVersionValid,
+          roundCurrent,
         },
       };
-
-      return validation;
     },
-    [isConnected, userAddress, currentChainId, expectedChainId, contractAddress, artifactVersion]
+    [
+      isConnected,
+      userAddress,
+      currentChainId,
+      expectedChainId,
+      contractAddress,
+      artifactVersion,
+      artifact.isDeployed,
+      artifact.disabledReasons,
+      contractAddressOverride,
+      expectedRoundConfig,
+    ]
   );
 
-  /**
-   * Simulate appeal participation
-   */
   const simulateParticipation = useCallback(
     async (
       context: AppealParticipationContext,
@@ -227,8 +371,11 @@ export function useAppealParticipation(
       setError(null);
 
       try {
-        // Validate first
-        const validation = validateParticipation(context, decision, stakeAmount);
+        const validation = validateParticipation(
+          context,
+          decision,
+          stakeAmount
+        );
         if (!validation.isValid) {
           return {
             success: false,
@@ -236,70 +383,136 @@ export function useAppealParticipation(
           };
         }
 
-        // Encode call data
-        const calldata = encodeParticipationCall(context.snapshot.appealId, decision, stakeAmount);
+        if (!publicClient) {
+          return {
+            success: false,
+            error: 'Public client unavailable — cannot simulate',
+          };
+        }
 
-        // In production, this would:
-        // 1. Use Viem's simulateContract to test the transaction
-        // 2. Estimate gas with proper buffer
-        // 3. Calculate projected state after participation
-        // 4. Estimate potential rewards based on current distribution
+        if (!userAddress) {
+          return { success: false, error: 'Wallet not connected' };
+        }
 
-        // Mock simulation
-        const gasEstimate = '180000'; // Estimated gas for appeal participation
-
-        // Calculate projected state
+        const appealIdBytes = toAppealIdBytes32(context.snapshot.appealId);
+        const expectedRound = BigInt(
+          context.roundProgression?.expectedRound ??
+            context.roundProgression?.roundNumber ??
+            expectedRoundConfig
+        );
         const stakeBigInt = BigInt(stakeAmount);
-        const currentSupportBigInt = BigInt(context.stakeBounds.totalSupportStake);
-        const currentOpposeBigInt = BigInt(context.stakeBounds.totalOpposeStake);
 
-        const newSupportTotal =
-          decision === 'SUPPORT'
-            ? (currentSupportBigInt + stakeBigInt).toString()
-            : currentSupportBigInt.toString();
+        // Refresh canonical round before eth_call — fail closed on drift.
+        let supportTotal = BigInt(context.stakeBounds.totalSupportStake);
+        let opposeTotal = BigInt(context.stakeBounds.totalOpposeStake);
+        try {
+          const raw = await publicClient.readContract({
+            address: contractAddress,
+            abi: appealParticipationAbi,
+            functionName: 'getAppealRound',
+            args: [appealIdBytes],
+          });
+          const round = parseRoundTuple(raw);
+          if (round) {
+            const stale = checkStaleRound(round.roundNumber, expectedRound);
+            if (stale.isStale) {
+              return {
+                success: false,
+                error:
+                  stale.reason ??
+                  'Stale round — cannot simulate participation',
+              };
+            }
+            supportTotal = round.supportStake;
+            opposeTotal = round.opposeStake;
+            setRoundProgression(
+              buildAppealRoundProgression({
+                appealId: appealIdBytes,
+                round,
+                expectedRound: Number(expectedRound),
+              })
+            );
+          }
+        } catch (err) {
+          return {
+            success: false,
+            error: `Failed to read appeal round: ${extractErrorMessage(err)}`,
+          };
+        }
 
-        const newOpposeTotal =
-          decision === 'OPPOSE'
-            ? (currentOpposeBigInt + stakeBigInt).toString()
-            : currentOpposeBigInt.toString();
+        const encoded = encodeParticipateInAppeal({
+          appealId: appealIdBytes,
+          decision,
+          stakeAmount: stakeBigInt,
+          expectedRound,
+        });
 
-        // Estimate potential reward (simplified calculation)
-        const totalStake = currentSupportBigInt + currentOpposeBigInt + stakeBigInt;
-        const potentialReward = (stakeBigInt * BigInt(150)) / BigInt(100); // 1.5x if majority wins
+        let gasEstimate: string | undefined;
+        try {
+          await publicClient.simulateContract({
+            address: contractAddress,
+            abi: appealParticipationAbi,
+            functionName: 'participateInAppeal',
+            args: encoded.args,
+            account: userAddress as `0x${string}`,
+          });
+          if (typeof publicClient.estimateContractGas === 'function') {
+            const gas = await publicClient.estimateContractGas({
+              address: contractAddress,
+              abi: appealParticipationAbi,
+              functionName: 'participateInAppeal',
+              args: encoded.args,
+              account: userAddress as `0x${string}`,
+            });
+            gasEstimate = gas.toString();
+          }
+        } catch (err) {
+          return {
+            success: false,
+            error: extractErrorMessage(err),
+          };
+        }
+
+        const projected = projectStakeTotals({
+          decision,
+          stakeAmount: stakeBigInt,
+          currentSupport: supportTotal,
+          currentOppose: opposeTotal,
+        });
 
         return {
           success: true,
           gasEstimate,
           projectedState: {
-            newSupportTotal,
-            newOpposeTotal,
-            potentialReward: potentialReward.toString(),
-            riskAmount: stakeAmount,
+            newSupportTotal: projected.newSupportTotal,
+            newOpposeTotal: projected.newOpposeTotal,
+            riskAmount: projected.riskAmount,
+            // potentialReward intentionally omitted — never fabricate rewards
           },
           data: {
-            from: userAddress!,
+            from: userAddress,
             to: contractAddress,
-            value: '0', // No ETH sent, just token approval
-            calldata,
+            value: '0',
+            calldata: encoded.calldata,
           },
         };
       } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : 'Simulation failed';
+        const errorMsg = extractErrorMessage(err);
         setError(errorMsg);
-        return {
-          success: false,
-          error: errorMsg,
-        };
+        return { success: false, error: errorMsg };
       } finally {
         setIsSimulating(false);
       }
     },
-    [userAddress, contractAddress, validateParticipation, encodeParticipationCall]
+    [
+      validateParticipation,
+      publicClient,
+      userAddress,
+      contractAddress,
+      expectedRoundConfig,
+    ]
   );
 
-  /**
-   * Submit appeal participation transaction
-   */
   const submitParticipation = useCallback(
     async (
       context: AppealParticipationContext,
@@ -310,33 +523,101 @@ export function useAppealParticipation(
       setError(null);
 
       try {
-        // Validate
-        const validation = validateParticipation(context, decision, stakeAmount);
+        const validation = validateParticipation(
+          context,
+          decision,
+          stakeAmount
+        );
         if (!validation.isValid) {
           throw new Error(validation.errors.join('; '));
         }
 
-        // Simulate first to catch errors early
-        const simulation = await simulateParticipation(context, decision, stakeAmount);
+        const simulation = await simulateParticipation(
+          context,
+          decision,
+          stakeAmount
+        );
         if (!simulation.success) {
           throw new Error(simulation.error || 'Simulation failed');
         }
 
-        // In production, this would:
-        // 1. Use Wagmi's useWriteContract hook
-        // 2. Send transaction via user's connected wallet
-        // 3. Return transaction hash immediately (don't wait for confirmation)
-        // 4. Let useStateReconciliation handle confirmation tracking
+        if (!userAddress) {
+          throw new Error('Wallet not connected');
+        }
 
-        // Mock transaction submission
-        await new Promise((resolve) => setTimeout(resolve, 500)); // Simulate network delay
+        const appealIdBytes = toAppealIdBytes32(context.snapshot.appealId);
+        const expectedRound = BigInt(
+          context.roundProgression?.expectedRound ??
+            context.roundProgression?.roundNumber ??
+            expectedRoundConfig
+        );
+        const stakeBigInt = BigInt(stakeAmount);
+        const encoded = encodeParticipateInAppeal({
+          appealId: appealIdBytes,
+          decision,
+          stakeAmount: stakeBigInt,
+          expectedRound,
+        });
 
-        const mockTxHash = `0x${Math.random().toString(16).slice(2).padEnd(64, '0')}`;
+        // Ensure ERC-20 allowance when staking token is pinned.
+        if (artifact.isDeployed && publicClient) {
+          try {
+            const allowance = (await publicClient.readContract({
+              address: artifact.addresses.stakingToken,
+              abi: appealErc20Abi,
+              functionName: 'allowance',
+              args: [userAddress as `0x${string}`, contractAddress],
+            })) as bigint;
+            if (allowance < stakeBigInt) {
+              const approveHash = await writeContractAsync({
+                address: artifact.addresses.stakingToken,
+                abi: appealErc20Abi,
+                functionName: 'approve',
+                args: [contractAddress, maxUint256],
+              } as never);
+              // Wait for the approval receipt when the client can confirm it.
+              if (publicClient.getTransactionReceipt) {
+                const start = Date.now();
+                while (Date.now() - start < 120_000) {
+                  try {
+                    const receipt = await publicClient.getTransactionReceipt({
+                      hash: approveHash as `0x${string}`,
+                    });
+                    if (receipt) break;
+                  } catch {
+                    // not mined yet
+                  }
+                  await new Promise((r) => setTimeout(r, 1_500));
+                }
+              }
+            }
+          } catch (err) {
+            throw new Error(
+              `Token allowance check/approve failed: ${extractErrorMessage(err)}`
+            );
+          }
+        }
+
+        const txHash = await writeContractAsync({
+          address: contractAddress,
+          abi: appealParticipationAbi,
+          functionName: 'participateInAppeal',
+          args: encoded.args,
+        } as never);
+
+        if (
+          typeof txHash !== 'string' ||
+          !/^0x[a-fA-F0-9]{64}$/.test(txHash)
+        ) {
+          throw new Error(
+            'Wallet did not return a canonical transaction hash'
+          );
+        }
+
         const timestamp = new Date().toISOString();
-
         const transaction: AppealParticipationTransaction = {
-          transactionHash: mockTxHash,
-          from: userAddress!,
+          transactionHash: txHash,
+          from: userAddress,
           to: contractAddress,
           status: 'PENDING',
           appealId: context.snapshot.appealId,
@@ -345,25 +626,40 @@ export function useAppealParticipation(
           decision,
           stakeAmount,
           timestamp,
+          expectedRound: Number(expectedRound),
         };
 
         setLastTransaction(transaction);
         return transaction;
       } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : 'Submission failed';
+        const errorMsg = extractErrorMessage(err);
         setError(errorMsg);
-        throw err;
+        throw err instanceof Error ? err : new Error(errorMsg);
       } finally {
         setIsSubmitting(false);
       }
     },
-    [userAddress, contractAddress, validateParticipation, simulateParticipation]
+    [
+      validateParticipation,
+      simulateParticipation,
+      userAddress,
+      expectedRoundConfig,
+      artifact.isDeployed,
+      artifact.addresses.stakingToken,
+      publicClient,
+      writeContractAsync,
+      contractAddress,
+    ]
   );
 
   return {
     simulateParticipation,
     submitParticipation,
     validateParticipation,
+    refreshRoundProgression,
+    roundProgression,
+    artifactDeployed: artifact.isDeployed,
+    artifactDisabledReasons: artifact.disabledReasons,
     isSimulating,
     isSubmitting,
     error,
