@@ -5,8 +5,10 @@
   "scripts": {
     "dev": "next dev",
     "verify-artifacts": "node scripts/verify-artifacts.mjs",
+    "verify-performance-budgets": "node scripts/verify-performance-budgets.mjs",
     "prebuild": "node scripts/verify-artifacts.mjs",
     "build": "next build",
+    "postbuild": "node scripts/verify-performance-budgets.mjs",
     "start": "next start",
     "lint": "eslint src",
     "type-check": "tsc --noEmit",
@@ -59,7 +61,7 @@
     "@vitest/browser-playwright": "^5.0.1",
     "@vitest/coverage-v8": "^5.0.1",
     "babel-plugin-react-compiler": "1.0.0",
-    "eslint": "^10",
+    "eslint": "^9",
     "eslint-config-next": "16.3.5",
     "eslint-plugin-jsx-a11y": "^6.10.0",
     "eslint-plugin-storybook": "^10.6.0",
@@ -72,7 +74,7 @@
     "storybook": "^10.6.0",
     "tailwindcss": "^4",
     "tailwindcss-animate": "^1.0.7",
-    "typescript": "^7",
+    "typescript": "^6",
     "vite": "^8.3.0",
     "vitest": "^5.0.1"
   },

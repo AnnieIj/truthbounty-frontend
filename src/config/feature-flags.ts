@@ -25,6 +25,7 @@ export type FeatureFlag =
   | 'TRUST_SCORE_DISPLAY'
   | 'NOTIFICATION_BELL'
   | 'ADVANCED_FILTERS'
+  | 'PERFORMANCE_BUDGETS'
   | 'BETA_FEATURES';
 
 // Feature flag metadata for documentation and UI
@@ -53,6 +54,7 @@ export const DEFAULT_FLAGS: Record<FeatureFlag, boolean> = {
   // UI features
   NOTIFICATION_BELL: true,
   ADVANCED_FILTERS: true,
+  PERFORMANCE_BUDGETS: true,
   
   // Beta/Experimental
   BETA_FEATURES: false,
@@ -126,6 +128,12 @@ export const FLAG_METADATA: Record<FeatureFlag, FeatureFlagMeta> = {
     defaultValue: true,
     category: 'feature',
   },
+  PERFORMANCE_BUDGETS: {
+    name: 'PERFORMANCE_BUDGETS',
+    description: 'Show the frontend performance budget indicator',
+    defaultValue: true,
+    category: 'feature',
+  },
   BETA_FEATURES: {
     name: 'BETA_FEATURES',
     description: 'Enable all beta/experimental features',
@@ -155,6 +163,7 @@ function getEnvFlags(): Partial<Record<FeatureFlag, boolean>> {
     { key: 'TRUST_SCORE_DISPLAY', envKey: 'NEXT_PUBLIC_FEATURE_TRUST_SCORE_DISPLAY' },
     { key: 'NOTIFICATION_BELL', envKey: 'NEXT_PUBLIC_FEATURE_NOTIFICATION_BELL' },
     { key: 'ADVANCED_FILTERS', envKey: 'NEXT_PUBLIC_FEATURE_ADVANCED_FILTERS' },
+    { key: 'PERFORMANCE_BUDGETS', envKey: 'NEXT_PUBLIC_FEATURE_PERFORMANCE_BUDGETS' },
     { key: 'BETA_FEATURES', envKey: 'NEXT_PUBLIC_FEATURE_BETA_FEATURES' },
   ];
   
