@@ -13,6 +13,8 @@ import { test, expect } from '@playwright/test';
  *  2. A validated ROLLBACK surfaces the assertive reorg banner live region.
  *  3. The acknowledge control is keyboard reachable and hides the banner.
  *  4. REPLACEMENT carries its own cursor and updates the replacement link.
+ *  5. V2-FE-113: confidence and verification outcomes are projected from
+ *     canonical state only — never fabricated, and fail closed when stale.
  */
 
 const ORPHANED = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
@@ -169,5 +171,46 @@ test.describe('V2-FE-144 — reorg/finality UX end to end', () => {
     await expect(banner).toBeVisible();
     await expect(banner).toHaveAttribute('data-state', 'unresolved');
     await expect(page.getByTestId('reorg-banner-detail')).toContainText(/stale/i);
+  });
+
+  test('confidence and verification outcomes reflect canonical projection only', async () => {
+    // No confidence surface is fabricated before canonical state arrives.
+    await expect(page.getByTestId('confidence-outcome')).toHaveCount(0);
+
+    await emitEvent(page, {
+      type: 'VERIFICATION_OUTCOME',
+      payload: {
+        claimId: 'claim-1',
+        confidence: 0.82,
+        outcome: 'verified',
+        cursor: 'cursor-3',
+        blockNumber: 102,
+      },
+      cursor: 'cursor-3',
+    });
+
+    const outcome = page.getByTestId('confidence-outcome');
+    await expect(outcome).toBeVisible();
+    await expect(outcome).toHaveAttribute('data-outcome', 'verified');
+    await expect(page.getByTestId('confidence-outcome-value')).toContainText('82%');
+    await expect(page.getByTestId('confidence-outcome-label')).toContainText(/verified/i);
+  });
+
+  test('stale confidence projection fails closed with recoverable guidance', async () => {
+    await emitEvent(page, {
+      type: 'VERIFICATION_OUTCOME',
+      payload: {
+        claimId: 'claim-1',
+        confidence: 'not-a-number',
+        outcome: 'verified',
+      },
+    });
+
+    const outcome = page.getByTestId('confidence-outcome');
+    await expect(outcome).toBeVisible();
+    await expect(outcome).toHaveAttribute('data-state', 'stale');
+    await expect(page.getByTestId('confidence-outcome-detail')).toContainText(/stale/i);
+    // Never fabricate a numeric confidence when the projection is invalid.
+    await expect(page.getByTestId('confidence-outcome-value')).toHaveCount(0);
   });
 });

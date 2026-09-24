@@ -5,6 +5,12 @@ import { test, expect } from '@playwright/test';
  * (pending / confirming / confirmed / failed) against the production-excluded
  * E2E harness route, asserting each state is presented accessibly and that the
  * failure state exposes its error and a retry affordance.
+ *
+ * Also covers the confidence and verification-outcome visualization
+ * (V2-FE-113): confidence scores and verification outcomes must be projected
+ * from canonical chain/API state only, and every documented user-visible
+ * outcome (verified / disputed / appealed / inconclusive) must be reachable,
+ * accessible, and never fabricate a protocol result.
  */
 test.describe('transaction states', () => {
   test.beforeEach(async ({ page }) => {
@@ -78,5 +84,93 @@ test.describe('transaction states', () => {
     for (const label of ['Pending', 'Confirming', 'Confirmed', 'Failed']) {
       await expect(summary.getByText(label, { exact: true })).toBeVisible();
     }
+  });
+});
+
+test.describe('confidence and verification outcomes', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/e2e/transactions');
+    await expect(
+      page.getByRole('heading', { name: /transaction states/i }),
+    ).toBeVisible();
+  });
+
+  const confidenceRegion = (page: import('@playwright/test').Page) =>
+    page.getByRole('region', { name: /confidence/i });
+
+  test('renders the confidence score from canonical projection state', async ({
+    page,
+  }) => {
+    const region = confidenceRegion(page);
+    await expect(region).toBeVisible();
+
+    // Score is presented as an accessible meter with a bounded value.
+    const meter = region.getByRole('meter', { name: /confidence score/i });
+    await expect(meter).toBeVisible();
+    await expect(meter).toHaveAttribute('aria-valuenow', /^\d+$/);
+    await expect(meter).toHaveAttribute('aria-valuemin', '0');
+    await expect(meter).toHaveAttribute('aria-valuemax', '100');
+
+    const value = Number(await meter.getAttribute('aria-valuenow'));
+    expect(value).toBeGreaterThanOrEqual(0);
+    expect(value).toBeLessThanOrEqual(100);
+  });
+
+  test('labels the confidence band without inventing an outcome', async ({
+    page,
+  }) => {
+    const region = confidenceRegion(page);
+    await expect(
+      region.getByText(/low|medium|high/i).first(),
+    ).toBeVisible();
+    // The projection source is disclosed so users can judge staleness.
+    await expect(region.getByText(/source:/i)).toBeVisible();
+  });
+
+  test('renders each verification outcome accessibly', async ({ page }) => {
+    const outcomes = page.getByRole('region', { name: /verification outcomes/i });
+    await expect(outcomes).toBeVisible();
+
+    for (const label of [
+      'Verified',
+      'Disputed',
+      'Appealed',
+      'Inconclusive',
+    ]) {
+      await expect(
+        outcomes.getByText(label, { exact: true }),
+      ).toBeVisible();
+    }
+  });
+
+  test('announces the verification outcome status to assistive tech', async ({
+    page,
+  }) => {
+    const status = page.getByRole('status', { name: /verification outcome/i });
+    await expect(status).toBeVisible();
+    await expect(status).toHaveText(/verified|disputed|appealed|inconclusive/i);
+  });
+
+  test('fails closed when confidence data is stale', async ({ page }) => {
+    await page.goto('/e2e/transactions?confidence=stale');
+
+    const region = confidenceRegion(page);
+    await expect(region).toBeVisible();
+    // Stale critical data must not be presented as a fresh score.
+    await expect(region.getByText(/stale/i)).toBeVisible();
+    await expect(
+      region.getByRole('meter', { name: /confidence score/i }),
+    ).toHaveCount(0);
+  });
+
+  test('fails closed when confidence data is unavailable', async ({ page }) => {
+    await page.goto('/e2e/transactions?confidence=unavailable');
+
+    const region = confidenceRegion(page);
+    await expect(region).toBeVisible();
+    await expect(region.getByText(/unavailable/i)).toBeVisible();
+    await expect(
+      region.getByRole('meter', { name: /confidence score/i }),
+    ).toHaveCount(0);
   });
 });
