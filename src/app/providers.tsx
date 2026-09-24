@@ -10,6 +10,7 @@ import {
   RainbowKitThemedProvider,
   FeatureFlagProvider,
   FeatureFlagPanel,
+  SessionLifecycleProvider,
 } from '@/components/providers';
 import { SiweAuthProvider } from '@/context/SiweAuthProvider';
 
@@ -24,11 +25,13 @@ export function Providers({ children }: ProvidersProps) {
         <QueryProvider>
           <RainbowKitThemedProvider>
             <SiweAuthProvider>
-              <FeatureFlagProvider enablePersistence={true}>
-                {children}
-                {/* Feature flag panel for development debugging */}
-                <FeatureFlagPanel defaultOpen={false} position="bottom-right" />
-              </FeatureFlagProvider>
+              <SessionLifecycleProvider>
+                <FeatureFlagProvider enablePersistence={true}>
+                  {children}
+                  {/* Feature flag panel for development debugging */}
+                  <FeatureFlagPanel defaultOpen={false} position="bottom-right" />
+                </FeatureFlagProvider>
+              </SessionLifecycleProvider>
             </SiweAuthProvider>
           </RainbowKitThemedProvider>
         </QueryProvider>
