@@ -50,6 +50,20 @@ describe('safeUrl — scheme allowlist (fail closed)', () => {
     for (const vector of vectors) {
       const result = safeUrl(vector);
       expect(result.ok).toBe(false);
+    }
+
+    // Vectors that reduce to a real `javascript:` scheme after removing
+    // control characters are classified as unsafe schemes. The entity-encoded
+    // vector has no scheme at all, so it fails closed as a disallowed value.
+    for (const vector of [
+      'javascript:alert(1)',
+      'JaVaScRiPt:alert(1)',
+      'javascript\u0009:alert(1)',
+      'java\u0000script:alert(1)',
+      '\u0001javascript:alert(1)',
+      '  javascript:alert(1)',
+    ]) {
+      const result = safeUrl(vector);
       if (!result.ok) expect(result.reason).toBe('unsafe_scheme');
     }
   });

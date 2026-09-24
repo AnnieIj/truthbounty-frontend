@@ -115,6 +115,11 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
+    env:
+      # Public placeholder so the production build/prerender can run without
+      # third-party WalletConnect credentials in CI. Real deployments must set
+      # a genuine NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID.
+      NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: ci-placeholder-project-id
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -178,6 +183,10 @@ jobs:
   e2e:
     name: E2E
     runs-on: ubuntu-latest
+    env:
+      # Public placeholder (see the Build job) so Playwright can build and boot
+      # the production app without WalletConnect credentials.
+      NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: ci-placeholder-project-id
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
