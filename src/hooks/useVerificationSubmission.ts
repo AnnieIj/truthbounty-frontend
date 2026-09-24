@@ -615,9 +615,11 @@ export function useVerificationSubmission(
         const resolvedPhase: VerificationSubmissionPhase =
           result.status === 'stale'
             ? 'stale'
-            : result.status === 'mismatch'
-              ? 'mismatch'
-              : 'confirmed';
+            : result.status === 'degraded'
+              ? 'degraded'
+              : result.status === 'mismatch'
+                ? 'mismatch'
+                : 'confirmed';
         setPhase(resolvedPhase);
         return { transactionHash: txHash, phase: resolvedPhase, reconciliation: result };
       } catch (err) {

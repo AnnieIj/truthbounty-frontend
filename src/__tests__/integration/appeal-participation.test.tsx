@@ -1,28 +1,70 @@
 /**
- * Integration tests for appeal participation flow
- * Tests: complete flow from context fetch → validation → simulation → submission → reconciliation
+ * Integration tests for the appeal participation flow.
+ * Covers context fetch → validation → simulation → submission → reconciliation
+ * using the real ABI-driven participation flow (never fabricated calldata or hashes).
  */
 
 import { renderHook, waitFor, act } from '@testing-library/react';
+import { toFunctionSelector } from 'viem';
 import { useAppealContext } from '@/hooks/useAppealContext';
 import { useAppealParticipation } from '@/hooks/useAppealParticipation';
 import { useAppealReconciliation } from '@/hooks/useAppealReconciliation';
+import {
+  MOCK_ADDRESS_1,
+  MOCK_TX_HASH_1,
+} from '@/__tests__/mocks/wagmi/mock-wagmi';
 import * as wagmi from 'wagmi';
 
-// Mock Wagmi
 jest.mock('wagmi', () => ({
   useAccount: jest.fn(),
   useChainId: jest.fn(),
   useBlockNumber: jest.fn(),
   useWaitForTransactionReceipt: jest.fn(),
   usePublicClient: jest.fn(),
+  useWriteContract: jest.fn(),
 }));
 
-describe('Appeal Participation Integration', () => {
-  const mockContractAddress = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8';
-  const mockUserAddress = '0x1234567890123456789012345678901234567890';
-  const OPTIMISM_MAINNET = 11155420;
+const mockContractAddress = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8';
+const mockUserAddress = MOCK_ADDRESS_1;
+const OPTIMISM_MAINNET = 11155420;
+const TX_HASH = MOCK_TX_HASH_1;
+const APPEAL_ID = '0x' + 'ab'.repeat(32);
 
+const TEST_ABI = [
+  {
+    type: 'function',
+    name: 'participateInAppeal',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'appealId', type: 'bytes32' },
+      { name: 'support', type: 'bool' },
+      { name: 'stakeAmount', type: 'uint256' },
+    ],
+    outputs: [],
+  },
+] as const;
+
+const PARTICIPATE_SELECTOR = toFunctionSelector(
+  'participateInAppeal(bytes32,bool,uint256)'
+);
+
+const mockSimulateContract = jest.fn();
+const mockGetTransactionReceipt = jest.fn();
+const mockReadContract = jest.fn();
+const mockWriteContractAsync = jest.fn();
+
+function renderAppealHook(config: Record<string, unknown> = {}) {
+  return renderHook(() =>
+    useAppealParticipation({
+      contractAddress: mockContractAddress,
+      abi: TEST_ABI,
+      expectedChainId: OPTIMISM_MAINNET,
+      ...config,
+    })
+  );
+}
+
+describe('Appeal Participation Integration', () => {
   beforeEach(() => {
     jest.clearAllMocks();
 
@@ -34,15 +76,31 @@ describe('Appeal Participation Integration', () => {
     (wagmi.useBlockNumber as jest.Mock).mockReturnValue({
       data: BigInt(12345678),
     });
-    (wagmi.usePublicClient as jest.Mock).mockReturnValue({});
+    mockSimulateContract.mockResolvedValue({ request: {} });
+    mockGetTransactionReceipt.mockResolvedValue({
+      transactionHash: TX_HASH,
+      status: '0x1',
+      blockNumber: 1234n,
+      gasUsed: 21000n,
+      chainId: OPTIMISM_MAINNET,
+    });
+    mockReadContract.mockResolvedValue(0n);
+    (wagmi.usePublicClient as jest.Mock).mockReturnValue({
+      simulateContract: mockSimulateContract,
+      getTransactionReceipt: mockGetTransactionReceipt,
+      readContract: mockReadContract,
+    });
+    mockWriteContractAsync.mockResolvedValue(TX_HASH);
+    (wagmi.useWriteContract as jest.Mock).mockReturnValue({
+      writeContractAsync: mockWriteContractAsync,
+    });
   });
 
   describe('complete participation flow', () => {
     it('should complete full flow: fetch context → validate → simulate → submit → reconcile', async () => {
-      // Step 1: Fetch appeal context
       const { result: contextResult } = renderHook(() =>
         useAppealContext({
-          appealId: 'appeal-123',
+          appealId: APPEAL_ID,
           claimId: 'claim-456',
           contractAddress: mockContractAddress,
           pollInterval: 100000,
@@ -56,14 +114,8 @@ describe('Appeal Participation Integration', () => {
       const context = contextResult.current.context!;
       expect(context.isEligible).toBe(true);
 
-      // Step 2: Initialize participation hook
-      const { result: participationResult } = renderHook(() =>
-        useAppealParticipation({
-          contractAddress: mockContractAddress,
-        })
-      );
+      const { result: participationResult } = renderAppealHook();
 
-      // Step 3: Validate participation
       const validation = participationResult.current.validateParticipation(
         context,
         'SUPPORT',
@@ -73,7 +125,6 @@ describe('Appeal Participation Integration', () => {
       expect(validation.isValid).toBe(true);
       expect(validation.errors).toHaveLength(0);
 
-      // Step 4: Simulate transaction
       let simulation: any;
       await act(async () => {
         simulation = await participationResult.current.simulateParticipation(
@@ -84,10 +135,10 @@ describe('Appeal Participation Integration', () => {
       });
 
       expect(simulation?.success).toBe(true);
-      expect(simulation?.gasEstimate).toBeDefined();
-      expect(simulation?.projectedState).toBeDefined();
+      expect(simulation?.data?.calldata.startsWith(PARTICIPATE_SELECTOR)).toBe(
+        true
+      );
 
-      // Step 5: Submit transaction
       let transaction: any;
       await act(async () => {
         transaction = await participationResult.current.submitParticipation(
@@ -99,9 +150,8 @@ describe('Appeal Participation Integration', () => {
 
       expect(transaction).toBeDefined();
       expect(transaction?.transactionHash).toMatch(/^0x[a-f0-9]{64}$/);
-      expect(transaction?.status).toBe('PENDING');
+      expect(transaction?.status).toBe('CONFIRMED');
 
-      // Step 6: Mock receipt and reconcile
       (wagmi.useWaitForTransactionReceipt as jest.Mock).mockReturnValue({
         data: {
           status: 'success',
@@ -123,15 +173,19 @@ describe('Appeal Participation Integration', () => {
       });
 
       expect(reconciliationResult.current.result?.status).toBe('confirmed');
-      expect(reconciliationResult.current.result?.position.hasParticipated).toBe(true);
+      expect(
+        reconciliationResult.current.result?.position.hasParticipated
+      ).toBe(true);
       expect(reconciliationResult.current.stateSegregation).not.toBeNull();
-      expect(reconciliationResult.current.stateSegregation?.statesAreIndependent).toBe(true);
+      expect(
+        reconciliationResult.current.stateSegregation?.statesAreIndependent
+      ).toBe(true);
     });
 
     it('should handle oppose decision in complete flow', async () => {
       const { result: contextResult } = renderHook(() =>
         useAppealContext({
-          appealId: 'appeal-456',
+          appealId: APPEAL_ID,
           claimId: 'claim-789',
           contractAddress: mockContractAddress,
         })
@@ -141,11 +195,7 @@ describe('Appeal Participation Integration', () => {
         expect(contextResult.current.context).toBeDefined();
       });
 
-      const { result: participationResult } = renderHook(() =>
-        useAppealParticipation({
-          contractAddress: mockContractAddress,
-        })
-      );
+      const { result: participationResult } = renderAppealHook();
 
       let transaction: any;
       await act(async () => {
@@ -170,7 +220,7 @@ describe('Appeal Participation Integration', () => {
 
       const { result: contextResult } = renderHook(() =>
         useAppealContext({
-          appealId: 'appeal-123',
+          appealId: APPEAL_ID,
           claimId: 'claim-456',
           contractAddress: mockContractAddress,
         })
@@ -187,7 +237,7 @@ describe('Appeal Participation Integration', () => {
     it('should stop flow when validation fails', async () => {
       const { result: contextResult } = renderHook(() =>
         useAppealContext({
-          appealId: 'appeal-123',
+          appealId: APPEAL_ID,
           claimId: 'claim-456',
           contractAddress: mockContractAddress,
         })
@@ -197,28 +247,23 @@ describe('Appeal Participation Integration', () => {
         expect(contextResult.current.context).toBeDefined();
       });
 
-      const { result: participationResult } = renderHook(() =>
-        useAppealParticipation({
-          contractAddress: mockContractAddress,
-        })
-      );
+      const { result: participationResult } = renderAppealHook();
 
-      // Try to submit with insufficient stake
-      await expect(
-        act(async () => {
-          await participationResult.current.submitParticipation(
+      await act(async () => {
+        await expect(
+          participationResult.current.submitParticipation(
             contextResult.current.context!,
             'SUPPORT',
             '50000000000000000' // Below minimum
-          );
-        })
-      ).rejects.toThrow();
+          )
+        ).rejects.toThrow('Stake amount below minimum');
+      });
     });
 
     it('should handle transaction revert in reconciliation', async () => {
       const { result: contextResult } = renderHook(() =>
         useAppealContext({
-          appealId: 'appeal-123',
+          appealId: APPEAL_ID,
           claimId: 'claim-456',
           contractAddress: mockContractAddress,
         })
@@ -228,11 +273,7 @@ describe('Appeal Participation Integration', () => {
         expect(contextResult.current.context).toBeDefined();
       });
 
-      const { result: participationResult } = renderHook(() =>
-        useAppealParticipation({
-          contractAddress: mockContractAddress,
-        })
-      );
+      const { result: participationResult } = renderAppealHook();
 
       let transaction: any;
       await act(async () => {
@@ -243,7 +284,6 @@ describe('Appeal Participation Integration', () => {
         );
       });
 
-      // Mock reverted transaction
       (wagmi.useWaitForTransactionReceipt as jest.Mock).mockReturnValue({
         data: {
           status: 'reverted',
@@ -264,7 +304,9 @@ describe('Appeal Participation Integration', () => {
       });
 
       expect(reconciliationResult.current.result?.status).toBe('reverted');
-      expect(reconciliationResult.current.result?.position.hasParticipated).toBe(false);
+      expect(
+        reconciliationResult.current.result?.position.hasParticipated
+      ).toBe(false);
     });
   });
 
@@ -272,7 +314,7 @@ describe('Appeal Participation Integration', () => {
     it('should maintain state segregation from context to reconciliation', async () => {
       const { result: contextResult } = renderHook(() =>
         useAppealContext({
-          appealId: 'appeal-123',
+          appealId: APPEAL_ID,
           claimId: 'claim-456',
           contractAddress: mockContractAddress,
         })
@@ -282,11 +324,7 @@ describe('Appeal Participation Integration', () => {
         expect(contextResult.current.context).not.toBeNull();
       });
 
-      const { result: participationResult } = renderHook(() =>
-        useAppealParticipation({
-          contractAddress: mockContractAddress,
-        })
-      );
+      const { result: participationResult } = renderAppealHook();
 
       let transaction: any;
       await act(async () => {
@@ -317,16 +355,11 @@ describe('Appeal Participation Integration', () => {
       });
 
       const segregation = reconciliationResult.current.stateSegregation!;
-      
-      // Verify claim IDs match
+
       expect(segregation.claimId).toBe('claim-456');
-      
-      // Verify appeal state is tracked separately
-      expect(segregation.appealState.appealId).toBe('appeal-123');
+      expect(segregation.appealState.appealId).toBe(APPEAL_ID);
       expect(segregation.appealState.decision).toBe('SUPPORT');
       expect(segregation.appealState.status).toBe('CONFIRMED');
-      
-      // Verify independence flag
       expect(segregation.statesAreIndependent).toBe(true);
     });
   });
@@ -335,7 +368,7 @@ describe('Appeal Participation Integration', () => {
     it('should update context when blocks advance during participation', async () => {
       const { result: contextResult, rerender } = renderHook(() =>
         useAppealContext({
-          appealId: 'appeal-123',
+          appealId: APPEAL_ID,
           claimId: 'claim-456',
           contractAddress: mockContractAddress,
         })
@@ -345,20 +378,19 @@ describe('Appeal Participation Integration', () => {
         expect(contextResult.current.context).not.toBeNull();
       });
 
-      const initialBlocksRemaining = contextResult.current.context!.deadline.blocksRemaining;
+      const initialBlocksRemaining =
+        contextResult.current.context!.deadline.blocksRemaining;
 
-      // Simulate block advancement
       (wagmi.useBlockNumber as jest.Mock).mockReturnValue({
         data: BigInt(12345700),
       });
 
       rerender();
 
-      // Context should update deadline
       await waitFor(() => {
-        expect(contextResult.current.context?.deadline.blocksRemaining).not.toBe(
-          initialBlocksRemaining
-        );
+        expect(
+          contextResult.current.context?.deadline.blocksRemaining
+        ).not.toBe(initialBlocksRemaining);
       });
     });
   });
@@ -367,7 +399,7 @@ describe('Appeal Participation Integration', () => {
     it('should prevent double submission', async () => {
       const { result: contextResult } = renderHook(() =>
         useAppealContext({
-          appealId: 'appeal-123',
+          appealId: APPEAL_ID,
           claimId: 'claim-456',
           contractAddress: mockContractAddress,
         })
@@ -377,25 +409,20 @@ describe('Appeal Participation Integration', () => {
         expect(contextResult.current.context).toBeDefined();
       });
 
-      const { result: participationResult } = renderHook(() =>
-        useAppealParticipation({
-          contractAddress: mockContractAddress,
-        })
-      );
+      const { result: participationResult } = renderAppealHook();
 
-      // First submission
       let firstTransaction: any;
       await act(async () => {
-        firstTransaction = await participationResult.current.submitParticipation(
-          contextResult.current.context!,
-          'SUPPORT',
-          '500000000000000000'
-        );
+        firstTransaction =
+          await participationResult.current.submitParticipation(
+            contextResult.current.context!,
+            'SUPPORT',
+            '500000000000000000'
+          );
       });
 
       expect(firstTransaction).toBeDefined();
 
-      // Update context to reflect participation
       const updatedContext = {
         ...contextResult.current.context!,
         walletPosition: {
@@ -407,7 +434,6 @@ describe('Appeal Participation Integration', () => {
         ineligibilityReason: 'Already participated',
       };
 
-      // Second submission should fail validation
       const validation = participationResult.current.validateParticipation(
         updatedContext,
         'OPPOSE',
@@ -415,15 +441,17 @@ describe('Appeal Participation Integration', () => {
       );
 
       expect(validation.isValid).toBe(false);
-      expect(validation.errors).toContain('You have already participated in this appeal');
+      expect(validation.errors).toContain(
+        'You have already participated in this appeal'
+      );
     });
   });
 
-  describe('gas estimation and projection', () => {
-    it('should provide accurate gas and projection throughout flow', async () => {
+  describe('real simulation data', () => {
+    it('should surface real calldata and never fabricate gas or projections', async () => {
       const { result: contextResult } = renderHook(() =>
         useAppealContext({
-          appealId: 'appeal-123',
+          appealId: APPEAL_ID,
           claimId: 'claim-456',
           contractAddress: mockContractAddress,
         })
@@ -433,11 +461,7 @@ describe('Appeal Participation Integration', () => {
         expect(contextResult.current.context).toBeDefined();
       });
 
-      const { result: participationResult } = renderHook(() =>
-        useAppealParticipation({
-          contractAddress: mockContractAddress,
-        })
-      );
+      const { result: participationResult } = renderAppealHook();
 
       const stakeAmount = '1000000000000000000'; // 1 ETH
       let simulation: any;
@@ -450,12 +474,13 @@ describe('Appeal Participation Integration', () => {
         );
       });
 
-      expect(simulation?.gasEstimate).toBeDefined();
-      expect(Number(simulation?.gasEstimate)).toBeGreaterThan(0);
-      
-      expect(simulation?.projectedState?.newSupportTotal).toBe('4500000000000000000');
-      expect(simulation?.projectedState?.riskAmount).toBe(stakeAmount);
-      expect(simulation?.projectedState?.potentialReward).toBeDefined();
+      expect(simulation?.success).toBe(true);
+      expect(simulation?.data?.calldata.startsWith(PARTICIPATE_SELECTOR)).toBe(
+        true
+      );
+      expect(simulation?.gasEstimate).toBeUndefined();
+      expect(simulation?.projectedState).toBeUndefined();
+      expect(simulation?.data?.calldata).toBeDefined();
     });
   });
 });

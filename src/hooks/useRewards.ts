@@ -13,7 +13,6 @@
  */
 
 import { useState, useCallback } from "react";
-import { claimableRewards, ClaimableReward } from "@/data/mock-data";
 import { claimRewards } from "@/app/lib/wallet";
 import {
   clearPendingTransaction,
@@ -21,6 +20,14 @@ import {
 } from '@/lib/pending-transactions';
 
 export type ClaimStatus = "idle" | "loading" | "success" | "error";
+
+/** Reward entitlement sourced from the rewards API / indexer — never fixtures. */
+export interface ClaimableReward {
+  claimId: string;
+  title: string;
+  amount: number;
+  claimedAt?: string;
+}
 
 export interface UseRewardsReturn {
   pendingRewards: ClaimableReward[];
@@ -32,8 +39,10 @@ export interface UseRewardsReturn {
 }
 
 export function useRewards(): UseRewardsReturn {
+  // V2-FE-044: start empty — production must not seed rewards from mock fixtures.
+  // Entitlements are loaded from the canonical rewards API when available (V2-FE-003).
   const [pendingRewards, setPendingRewards] =
-    useState<ClaimableReward[]>(claimableRewards);
+    useState<ClaimableReward[]>([]);
   const [status, setStatus] = useState<ClaimStatus>("idle");
   const [lastTxHash, setLastTxHash] = useState<`0x${string}` | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
