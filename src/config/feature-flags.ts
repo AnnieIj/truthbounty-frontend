@@ -399,25 +399,6 @@ export function isFlagEnabled(
  */
 function getEnvFlags(): Partial<Record<FeatureFlag, boolean>> {
   const envFlags: Partial<Record<FeatureFlag, boolean>> = {};
-  
-  // Check for environment variable overrides
-  const envOverrides: Array<{ key: FeatureFlag; envKey: string }> = [
-    { key: 'CLAIM_SUBMISSION', envKey: 'NEXT_PUBLIC_FEATURE_CLAIM_SUBMISSION' },
-    { key: 'CLAIM_DISPUTES', envKey: 'NEXT_PUBLIC_FEATURE_CLAIM_DISPUTES' },
-    { key: 'CLAIM_VERIFICATION', envKey: 'NEXT_PUBLIC_FEATURE_CLAIM_VERIFICATION' },
-    { key: 'WALLET_CONNECTION', envKey: 'NEXT_PUBLIC_FEATURE_WALLET_CONNECTION' },
-    { key: 'WORLDCOIN_VERIFICATION', envKey: 'NEXT_PUBLIC_FEATURE_WORLDCOIN_VERIFICATION' },
-    { key: 'REALTIME_UPDATES', envKey: 'NEXT_PUBLIC_FEATURE_REALTIME_UPDATES' },
-    { key: 'LEADERBOARD', envKey: 'NEXT_PUBLIC_FEATURE_LEADERBOARD' },
-    { key: 'ANALYTICS_DASHBOARD', envKey: 'NEXT_PUBLIC_FEATURE_ANALYTICS_DASHBOARD' },
-    { key: 'TRUST_SCORE_DISPLAY', envKey: 'NEXT_PUBLIC_FEATURE_TRUST_SCORE_DISPLAY' },
-    { key: 'NOTIFICATION_BELL', envKey: 'NEXT_PUBLIC_FEATURE_NOTIFICATION_BELL' },
-    { key: 'ADVANCED_FILTERS', envKey: 'NEXT_PUBLIC_FEATURE_ADVANCED_FILTERS' },
-    { key: 'PERFORMANCE_BUDGETS', envKey: 'NEXT_PUBLIC_FEATURE_PERFORMANCE_BUDGETS' },
-    { key: 'BETA_FEATURES', envKey: 'NEXT_PUBLIC_FEATURE_BETA_FEATURES' },
-  ];
-  
-  for (const { key, envKey } of envOverrides) {
 
   for (const key of FEATURE_FLAG_KEYS) {
     const envKey = `NEXT_PUBLIC_FEATURE_${key}`;
