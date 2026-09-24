@@ -2,6 +2,7 @@
 
 import { CheckCircle2, Shield, Calendar, Award } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { formatLocalDateTime, formatUtcDateTime } from '@/app/lib/format';
 
 interface VerificationSuccessCardProps {
   verificationLevel: 'orb' | 'device';
@@ -16,12 +17,10 @@ export function VerificationSuccessCard({
   expiresAt,
   onClose,
 }: VerificationSuccessCardProps) {
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
+  const formatVerified = (iso: string) => {
+    const local = formatLocalDateTime(iso);
+    if (local === '—') return '—';
+    return `${local} (${formatUtcDateTime(iso)})`;
   };
 
   return (
@@ -56,7 +55,7 @@ export function VerificationSuccessCard({
               <Calendar className="size-4" />
               <span>
                 <span className="font-medium">Verified:</span>{' '}
-                {formatDate(verifiedAt)}
+                {formatVerified(verifiedAt)}
               </span>
             </div>
 
@@ -65,7 +64,7 @@ export function VerificationSuccessCard({
                 <Award className="size-4" />
                 <span>
                   <span className="font-medium">Valid until:</span>{' '}
-                  {formatDate(expiresAt)}
+                  {formatVerified(expiresAt)}
                 </span>
               </div>
             )}

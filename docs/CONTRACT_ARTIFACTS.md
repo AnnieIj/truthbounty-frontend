@@ -29,3 +29,15 @@ Build runs `verify-artifacts` automatically via `prebuild`.
 - `TRUTHBOUNTY_ARTIFACT_DIR` — optional override for the release directory (CI/build only)
 
 Diagnostics: `GET /api/protocol`
+
+## Component-level protocol contract tests (V2-FE-141)
+
+Mutation UI should be wrapped in `ProtocolContractBoundary`, which resolves
+canonical release diagnostics + the verification artifact and fail-closes when
+the active chain is unsupported, addresses are unpinned, or the transaction
+lifecycle is stale/rejected/failed/reorged.
+
+```bash
+pnpm test src/components/protocol
+pnpm test src/components/features/claim-verification/__tests__/protocol-contract-components.test.tsx
+```

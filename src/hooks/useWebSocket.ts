@@ -109,12 +109,10 @@ export function useWebSocket(config?: WebSocketConfig) {
 
   // Calculate exponential backoff delay
   const getBackoffDelay = useCallback((attempt: number) => {
-    const delay = Math.min(
+    return Math.min(
       initialReconnectInterval * Math.pow(backoffMultiplier, attempt),
       maxReconnectInterval
     );
-    // Add jitter to prevent thundering herd
-    return delay + Math.random() * 1000;
   }, [initialReconnectInterval, maxReconnectInterval, backoffMultiplier]);
 
   // Clear all timers and intervals
@@ -183,6 +181,20 @@ export function useWebSocket(config?: WebSocketConfig) {
     }
   }, [httpCatchupUrl, messageCacheSize, onMessage]);
 
+  // Dispatch an event payload to typed subscribers registered via `subscribe()`
+  const dispatchToListeners = useCallback(
+    (data: WebSocketEvent) => {
+      const listeners = listenersRef.current.get(data.type);
+      if (!listeners) return;
+      listeners.forEach((handler) => {
+        if (isMountedRef.current) {
+          handler(data.payload as never);
+        }
+      });
+    },
+    [],
+  );
+
   // Process incoming message with deduplication and cursor tracking
   const processMessage = useCallback((data: WebSocketEvent) => {
     const messageId = generateMessageId(data);
@@ -211,14 +223,24 @@ export function useWebSocket(config?: WebSocketConfig) {
     }
 
     // Handle rollback events for chain reorgs
+    // The event is delivered both to the config callback and to typed
+    // subscribers (via `subscribe('ROLLBACK', …)`) so projection-aware
+    // consumers can reconcile without bypassing the pub/sub registry.
     if (data.type === 'ROLLBACK') {
       onRollback?.(data.payload as RollbackEvent);
+      dispatchToListeners(data);
+      setLastMessage(data);
+      onMessage?.(data);
       return;
     }
 
-    // Handle replacement events for chain updates
+    // Handle replacement events for transaction replacements. Same dual
+    // delivery contract as ROLLBACK (callback + typed subscribers).
     if (data.type === 'REPLACEMENT') {
       onReplacement?.(data.payload as ReplacementEvent);
+      dispatchToListeners(data);
+      setLastMessage(data);
+      onMessage?.(data);
       return;
     }
 
@@ -234,7 +256,7 @@ export function useWebSocket(config?: WebSocketConfig) {
 
     setLastMessage(data);
     onMessage?.(data);
-  }, [messageCacheSize, onMessage, onRollback, onReplacement]);
+  }, [messageCacheSize, onMessage, onRollback, onReplacement, dispatchToListeners]);
 
   // Connect to WebSocket server
   const connect = useCallback(() => {

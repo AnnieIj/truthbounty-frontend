@@ -22,10 +22,14 @@ export const DisputeVoting = ({ disputeId, currentStaked, onVote }: DisputeVotin
     <div className="rounded-xl border border-red-900/50 bg-red-950/10 p-4 sm:p-5 mt-4 sm:mt-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 sm:mb-4 gap-2 sm:gap-0">
         <h3 className="text-white font-semibold flex items-center gap-2 text-sm sm:text-base">
-          <span className="relative flex h-3 w-3">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-          </span>
+          {/* V2-FE-071 — static, motion-free attention cue. The pulsing
+              animate-ping span was removed: flashing indicators are killed
+              under reduced motion anyway, so comprehension must not rely on
+              them. The "Active" text + red dot already carry the meaning. */}
+          <span
+            aria-hidden="true"
+            className="relative inline-flex h-3 w-3 rounded-full bg-red-500 ring-2 ring-red-400/40"
+          ></span>
           Active Dispute Voting
         </h3>
         <span className="text-xs sm:text-sm text-red-400 font-mono">${currentStaked.toLocaleString()} Staked</span>

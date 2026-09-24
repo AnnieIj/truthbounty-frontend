@@ -117,11 +117,12 @@ export type VerificationSubmissionPhase =
   | 'confirmed'
   | 'rejected'
   | 'stale'
+  | 'degraded'
   | 'mismatch'
   | 'error';
 
 export interface VerificationReconciliation {
-  status: 'confirmed' | 'rejected' | 'stale' | 'mismatch' | 'idle';
+  status: 'confirmed' | 'rejected' | 'stale' | 'degraded' | 'mismatch' | 'idle';
   isMismatch: boolean;
   isWrongNetwork: boolean;
   isProtocolDisabled: boolean;

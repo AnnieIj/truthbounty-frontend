@@ -346,6 +346,9 @@ select:focus-visible,
 
 
 @media (prefers-reduced-motion: reduce) {
+  /* V2-FE-071 — Kill all non-essential animation at the OS preference level.
+     This block is the single source of truth for reduced motion; component-
+     level animation guards must not rely on JS-only suppression. */
   *,
   *::before,
   *::after {
@@ -355,15 +358,32 @@ select:focus-visible,
     scroll-behavior: auto !important;
   }
 
+  /* Explicit named-animation kill list (belt) — Tailwind's `animate-*`
+     utilities, the shimmer keyframes, and any future custom utilities.
+     animate-ping is included: pulsing/pinging dots are a flashing attention
+     cue that must never survive reduced motion (WCAG 2.3.1 / 2.2.2). */
+  .animate-ping,
   .animate-pulse,
   .animate-spin,
+  .animate-bounce,
   .animate-fadeIn,
   .animate-shimmer {
     animation: none !important;
   }
 
+  /* Smooth scrolling and scroll-driven motion are non-essential (brace). */
   html {
     scroll-behavior: auto;
+  }
+
+  /* Hover-driven transforms (scale/lift) are motion, not comprehension.
+     Disable them so hover feedback remains color/border-only. */
+  *:hover {
+    transform: none !important;
+  }
+  .group:hover .group-hover\:translate-x-1,
+  .group:hover .group-hover\:rotate-180 {
+    transform: none !important;
   }
 }
 
