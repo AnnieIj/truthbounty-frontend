@@ -200,3 +200,27 @@ describe('useAccount — Stellar/Freighter dependency removed', () => {
     expect(content).not.toContain('from "@stellar/freighter-api"');
   });
 });
+
+// ---------------------------------------------------------------------------
+// 8. V2-FE-045 — production wallet reconnection has no mock/simulator deps
+// ---------------------------------------------------------------------------
+
+describe('wallet reconnection — no mock/placeholder runtime dependencies', () => {
+  const productionWalletFiles = [
+    path.resolve(__dirname, '../../lib/wallet/reconnect.ts'),
+    path.resolve(__dirname, '../../hooks/useWallet.ts'),
+  ];
+
+  it.each(productionWalletFiles)('%s does not import mocks or simulators', (filePath) => {
+    const content = fs.readFileSync(filePath, 'utf-8');
+    expect(content).not.toMatch(/mock-wagmi|transaction-simulator|@stellar\/freighter-api/i);
+    expect(content).not.toContain('Math.random');
+  });
+
+  it('reconnect policy does not read a cached address/chain from storage', () => {
+    const filePath = path.resolve(__dirname, '../../lib/wallet/reconnect.ts');
+    const content = fs.readFileSync(filePath, 'utf-8');
+    // Only the connector id hint may be persisted — never identity material.
+    expect(content).not.toMatch(/localStorage|sessionStorage/);
+  });
+});
