@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from 'react';
 import { useAccount, useChainId } from 'wagmi';
-import { encodeFunctionData } from 'viem';
+import { encodeFunctionData, keccak256, toBytes } from 'viem';
 import {
   SettlementAction,
   SimulationResult,
@@ -191,7 +191,14 @@ export function useSettlementSubmission(
           throw new Error(simulation.error || 'Simulation failed');
         }
 
-        const mockTxHash = `0x${Math.random().toString(16).slice(2).padEnd(64, '0')}`;
+        // Deterministic placeholder hash derived from the action (never a
+        // pseudo-random value) until the canonical wallet submission flow is
+        // wired in.
+        const mockTxHash = keccak256(
+          toBytes(
+            `${action.type}:${action.claimId}:${action.disputeId ?? ''}:${userAddress ?? ''}`,
+          ),
+        );
         const timestamp = new Date().toISOString();
 
         const submission: SettlementSubmission = {

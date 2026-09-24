@@ -14,6 +14,14 @@
 
 import { useState, useCallback } from "react";
 import { claimRewards } from "@/app/lib/wallet";
+
+export interface ClaimableReward {
+  claimId: string;
+  title: string;
+  amount: number;
+}
+
+const claimableRewards: ClaimableReward[] = [];
 import {
   clearPendingTransaction,
   trackPendingTransaction,

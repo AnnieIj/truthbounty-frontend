@@ -109,12 +109,10 @@ export function useWebSocket(config?: WebSocketConfig) {
 
   // Calculate exponential backoff delay
   const getBackoffDelay = useCallback((attempt: number) => {
-    const delay = Math.min(
+    return Math.min(
       initialReconnectInterval * Math.pow(backoffMultiplier, attempt),
       maxReconnectInterval
     );
-    // Add jitter to prevent thundering herd
-    return delay + Math.random() * 1000;
   }, [initialReconnectInterval, maxReconnectInterval, backoffMultiplier]);
 
   // Clear all timers and intervals
