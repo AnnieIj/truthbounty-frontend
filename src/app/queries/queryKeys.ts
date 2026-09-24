@@ -5,6 +5,8 @@ export const queryKeys = {
     all: ['claims'] as const,
     detail: (claimId: string) => ['claims', claimId] as const,
     byStatus: (status: string) => ['claims', 'status', status] as const,
+    lifecycle: (claimId: string) => ['claims', claimId, 'lifecycle'] as const,
+    timeline: (claimId: string) => ['claims', claimId, 'timeline'] as const,
   },
   verifications: {
     all: ['verifications'] as const,
