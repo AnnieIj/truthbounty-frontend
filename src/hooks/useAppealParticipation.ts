@@ -669,16 +669,7 @@ export function useAppealParticipation(
               : BigInt(value as number | string);
           };
 
-        // Production path must not fabricate transaction hashes or optimistic state.
-        // Wait for actual wallet submission result from the contract API layer.
-        throw new Error('Wallet submission is not available in the current production build.');
 
-        const timestamp = new Date().toISOString();
-
-        const transaction: AppealParticipationTransaction = {
-          transactionHash: '',
-          from: userAddress!,
-          to: contractAddress,
           let currentAllowance: bigint;
           try {
             currentAllowance = await readAllowance();

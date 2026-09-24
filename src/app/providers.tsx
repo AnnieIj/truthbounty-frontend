@@ -13,6 +13,7 @@ import {
 } from '@/components/providers';
 import { SiweAuthProvider } from '@/context/SiweAuthProvider';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
+import { IntegrityBoundary } from '@/components/security/IntegrityBoundary';
 
 interface ProvidersProps {
   children: ReactNode;
@@ -27,7 +28,9 @@ export function Providers({ children }: ProvidersProps) {
             <SiweAuthProvider>
               <FeatureFlagProvider enablePersistence={true}>
                 <ErrorBoundary>
-                  {children}
+                  <IntegrityBoundary>
+                    {children}
+                  </IntegrityBoundary>
                 </ErrorBoundary>
                 {/* Feature flag panel for development debugging */}
                 <FeatureFlagPanel defaultOpen={false} position="bottom-right" />

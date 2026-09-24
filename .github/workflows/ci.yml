@@ -17,6 +17,38 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  secret-scan:
+    name: Secret scan (src + release)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Run secret scan (src + release)
+        run: node scripts/secret-scan.mjs src release
+
+  dependency-security:
+    name: Dependency Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      - name: Enable pnpm via corepack
+        run: corepack enable pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Run dependency audit
+        run: node scripts/dependency-audit.mjs
+
   lint:
     name: Lint
     runs-on: ubuntu-latest
@@ -143,8 +175,12 @@ jobs:
         run: npm run test:production-smoke:unit
       - name: Type check
         run: npm run type-check
+      - name: Check lockfile integrity
+        run: node scripts/check-lockfile.mjs
       - name: Build app
         run: npm run build
+      - name: Run secret scan (.next build output)
+        run: node scripts/secret-scan.mjs .next
 
 
   accessibility:

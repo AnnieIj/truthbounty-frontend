@@ -10,6 +10,8 @@ import {
   getAddress,
   parseAbi,
 } from 'viem';
+import { assertNoFabricatedData } from '@/lib/transaction-state';
+import type { TransactionConfirmed } from '@/app/types/transaction';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -467,6 +469,26 @@ export function useClaimCreationTransaction() {
             { cause: indexError },
           );
         }
+
+        const securityTx: TransactionConfirmed = {
+          state: 'confirmed',
+          hash: writeHash,
+          fromAddress: account,
+          toAddress: claimContract,
+          chainId: expectedChainId,
+          timestamp: Date.now(),
+          blockNumber: receipt.blockNumber ?? 0n,
+          blockHash: receipt.blockHash ?? '0x' + '0'.repeat(64),
+          transactionIndex: receipt.transactionIndex ?? 0,
+          confirmations: Number(receipt.confirmations ?? 1n),
+          receipt: {
+            status: receipt.status === 'success' ? 'success' : 'reverted',
+            gasUsed: receipt.gasUsed ?? 0n,
+            cumulativeGasUsed: receipt.cumulativeGasUsed ?? 0n,
+            logs: [],
+          },
+        };
+        assertNoFabricatedData(securityTx);
 
         setStatus('success');
         return { status: 'success', txHash: writeHash, indexedClaim };

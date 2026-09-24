@@ -2,6 +2,7 @@
 
 import React, { ErrorInfo, ReactNode, createRef } from 'react';
 import { toSafeErrorMessage } from '@/lib/sanitize-error';
+import { redactError } from '@/lib/security/redaction';
 
 export interface ErrorBoundaryProps {
   children: ReactNode;
@@ -28,6 +29,8 @@ interface ErrorBoundaryState {
  *   (`truthbounty-pending-transactions-v2`, `tb-tx-v2:*`).
  * - Never renders stack traces or sensitive data in production.
  * - Provides keyboard-accessible retry with focus management.
+ * - Every caught error is routed through `redactError` before any logging or
+ *   UI rendering so secrets / long hex / Bearer tokens never leak.
  */
 export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   private retryRef = createRef<HTMLButtonElement>();
@@ -42,8 +45,17 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    // Fail closed: log only, never propagate sensitive detail to UI.
-    console.error('ErrorBoundary caught:', this.props.scope ?? 'global', error, errorInfo);
+    const redacted = redactError(error);
+    // Fail closed: log the redacted form only, never propagate sensitive
+    // detail to telemetry console streams.
+    console.error(
+      'ErrorBoundary caught:',
+      this.props.scope ?? 'global',
+      redacted.name,
+      redacted.message,
+      redacted.stack,
+      { cause: redacted.cause, componentStack: errorInfo.componentStack ? redactErrorInfoStack(errorInfo.componentStack) : null },
+    );
     this.props.onError?.(error, errorInfo, this.props.scope);
   }
 
@@ -68,8 +80,14 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
   };
 
   render() {
-    if (this.state.hasError) {
-      const message = toSafeErrorMessage(this.state.error);
+    if (this.state.hasError && this.state.error) {
+      const redacted = redactError(this.state.error);
+      const safeErrorForDisplay: Error = {
+        name: redacted.name,
+        message: redacted.message,
+        stack: redacted.stack ?? undefined,
+      } as Error;
+      const message = toSafeErrorMessage(safeErrorForDisplay);
       if (this.props.fallback) {
         return <>{this.props.fallback({ message, onRetry: this.handleRetry })}</>;
       }
@@ -102,6 +120,11 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     }
     return this.props.children;
   }
+}
+
+function redactErrorInfoStack(componentStack: string): string {
+  const r = redactError({ message: '', stack: componentStack });
+  return r.stack ?? '';
 }
 
 export default ErrorBoundary;
