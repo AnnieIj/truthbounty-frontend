@@ -6,7 +6,9 @@ export default defineConfig({
   use: {
     baseURL: 'http://localhost:3000',
     headless: true,
-    channel: 'chrome',
+    // Prefer branded Chrome when installed (CI); fall back to the bundled
+    // Chromium so contributors without Chrome can still run E2E locally.
+    ...(needsChromeChannel() ? { channel: 'chrome' } : {}),
   },
   webServer: {
     command: 'pnpm start',
@@ -20,3 +22,26 @@ export default defineConfig({
     },
   },
 });
+
+/**
+ * Branded Chrome is only guaranteed in CI (`.github/workflows/ci.yml` runs
+ * `npx playwright install --with-deps`, and the previous config hardcoded
+ * `channel: 'chrome'`). Detect its availability instead of crashing when the
+ * binary is missing on contributor machines.
+ */
+function needsChromeChannel(): boolean {
+  if (process.env.CI) return true;
+  try {
+    const paths = [
+      '/opt/google/chrome/chrome',
+      '/usr/bin/google-chrome',
+      '/usr/bin/google-chrome-stable',
+    ];
+    // Lazy require keeps this config usable from any runner.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const fs = require('fs');
+    return paths.some((p) => fs.existsSync(p));
+  } catch {
+    return false;
+  }
+}
