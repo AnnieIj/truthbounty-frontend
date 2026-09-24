@@ -1,7 +1,19 @@
 import React, { useRef, useState } from "react";
-import { activeClaims } from "@/data/mock-data";
 import { ActiveClaimsTableSkeleton } from "@/components/skeletons";
 import { getCategoryIcon } from "@/lib/category-icons";
+
+const activeClaims: Array<{
+  category: string;
+  impact: string;
+  title: string;
+  source: string;
+  status: string;
+  confidence: string;
+  votes: string;
+  stake: string;
+  time: string;
+  actions: string;
+}> = [];
 
 interface ActiveClaimsTableProps {
   isLoading?: boolean;
