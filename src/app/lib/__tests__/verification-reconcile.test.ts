@@ -121,6 +121,19 @@ describe('reconcileVerificationState', () => {
     expect(result.details.join(' ')).toContain('has not confirmed');
   });
 
+  it('reports degraded when the API projection is missing required integrity fields', () => {
+    const result = reconcileVerificationState({
+      ...baseInput,
+      projection: {
+        ...confirmedProjection,
+        status: undefined,
+        txHash: undefined,
+      },
+    });
+    expect(result.status).toBe('degraded');
+    expect(result.details.join(' ')).toContain('incomplete');
+  });
+
   it('flags a version mismatch with the pinned artifact', () => {
     const result = reconcileVerificationState({
       ...baseInput,

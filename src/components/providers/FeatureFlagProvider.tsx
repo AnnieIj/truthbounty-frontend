@@ -7,6 +7,8 @@ import {
   isDevelopment,
   FeatureFlagMeta,
   FLAG_METADATA,
+  evaluateFlag,
+  type FlagEvaluationContext,
 } from '@/config/feature-flags';
 
 // Storage key for persisting flag overrides
@@ -15,7 +17,8 @@ const STORAGE_KEY = 'truthbounty_feature_flags';
 // Context types
 interface FeatureFlagContextValue {
   flags: Record<FeatureFlag, boolean>;
-  isEnabled: (flag: FeatureFlag) => boolean;
+  isEnabled: (flag: FeatureFlag, context?: FlagEvaluationContext) => boolean;
+  evaluate: (flag: FeatureFlag, context?: FlagEvaluationContext) => ReturnType<typeof evaluateFlag>;
   setFlag: (flag: FeatureFlag, enabled: boolean) => void;
   setFlags: (flags: Partial<Record<FeatureFlag, boolean>>) => void;
   resetFlag: (flag: FeatureFlag) => void;
@@ -118,9 +121,13 @@ export function FeatureFlagProvider({
     }
   }, [flags, enablePersistence]);
 
-  // Check if a flag is enabled
-  const isEnabled = useCallback((flag: FeatureFlag): boolean => {
-    return flags[flag] ?? false;
+  // Fail-closed evaluation (unknown/expired/guards → safeFallback)
+  const evaluate = useCallback((flag: FeatureFlag, context?: FlagEvaluationContext) => {
+    return evaluateFlag(flag, flags[flag], context);
+  }, [flags]);
+
+  const isEnabled = useCallback((flag: FeatureFlag, context?: FlagEvaluationContext): boolean => {
+    return evaluateFlag(flag, flags[flag], context).enabled;
   }, [flags]);
 
   // Set a single flag
@@ -173,6 +180,7 @@ export function FeatureFlagProvider({
   const value: FeatureFlagContextValue = {
     flags,
     isEnabled,
+    evaluate,
     setFlag,
     setFlags,
     resetFlag,
@@ -227,9 +235,12 @@ export function useFeatureFlags(): FeatureFlagContextValue {
  * }
  * ```
  */
-export function useFeatureFlag(flag: FeatureFlag): boolean {
+export function useFeatureFlag(
+  flag: FeatureFlag,
+  context?: FlagEvaluationContext
+): boolean {
   const { isEnabled } = useFeatureFlags();
-  return isEnabled(flag);
+  return isEnabled(flag, context);
 }
 
 // Export the context for advanced use cases

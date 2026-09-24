@@ -6,6 +6,11 @@ import { Claim } from '@/app/types/claim';
 import { useTrustForAddress } from '@/components/hooks/useTrust';
 import TrustScoreTooltip from '@/components/ui/TrustScoreTooltip';
 import { ClaimDetailsSkeleton } from '@/components/skeletons';
+import {
+  sanitizeEvidenceList,
+  sanitizeText,
+} from '@/lib/security/evidence-sanitizer';
+import { SafeExternalLink } from '@/components/security/SafeExternalLink';
 
 export interface ClaimDetailsProps {
   claimId?: string;
@@ -54,10 +59,16 @@ export function ClaimDetails({ claimId, claim: initialClaim, isLoading: external
     );
   }
 
+  // V2-FE-075 — claim content arrives from the API and is untrusted.
+  const safeTitle = sanitizeText(claim.title, 300);
+  const safeDescription = sanitizeText(claim.description, 5000);
+  const safeCategory = claim.category ? sanitizeText(claim.category, 100) : null;
+  const evidence = sanitizeEvidenceList(claim.evidence);
+
   return (
     <div className="bg-[#18181b] border border-[#232329] rounded-xl p-6 space-y-4">
       <div className="flex items-center justify-between border-b border-[#232329] pb-4">
-        <h2 className="text-xl font-bold text-white">{claim.title}</h2>
+        <h2 className="text-xl font-bold text-white">{safeTitle}</h2>
         <span className="px-3 py-1 bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 rounded-full text-xs font-semibold uppercase tracking-wider">
           {claim.status}
         </span>
@@ -65,7 +76,7 @@ export function ClaimDetails({ claimId, claim: initialClaim, isLoading: external
 
       <div className="space-y-2">
         <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Description</h4>
-        <p className="text-gray-200 text-sm leading-relaxed">{claim.description}</p>
+        <p className="text-gray-200 text-sm leading-relaxed">{safeDescription}</p>
       </div>
 
       <div className="flex items-center justify-between pt-4 border-t border-[#232329] text-xs text-gray-400">
@@ -73,7 +84,7 @@ export function ClaimDetails({ claimId, claim: initialClaim, isLoading: external
           {claim.category ? (
             <>
               <span>Category: </span>
-              <span className="text-gray-200 font-medium">{claim.category}</span>
+              <span className="text-gray-200 font-medium">{safeCategory ?? 'Uncategorized'}</span>
             </>
           ) : (
             <span>Category: Uncategorized</span>
@@ -86,18 +97,36 @@ export function ClaimDetails({ claimId, claim: initialClaim, isLoading: external
         </div>
       </div>
 
-      {claim.evidence && claim.evidence.length > 0 && (
+      {evidence.length > 0 && (
         <div className="pt-4 border-t border-[#232329] space-y-2">
           <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Evidence</h4>
           <ul className="space-y-1">
-            {claim.evidence.map((ev, idx) => (
+            {evidence.map((ev, idx) => (
               <li key={idx} className="text-xs text-gray-300">
-                {ev.type === 'link' ? (
-                  <a href={ev.value} target="_blank" rel="noreferrer" className="text-blue-400 underline">
-                    {ev.value}
-                  </a>
-                ) : (
-                  <span>{ev.value}</span>
+                {ev.kind === 'link' && (
+                  <SafeExternalLink
+                    href={ev.href}
+                    className="text-blue-400 underline break-all"
+                    aria-label={`Evidence link (opens in new tab)`}
+                  >
+                    {ev.text}
+                  </SafeExternalLink>
+                )}
+                {ev.kind === 'image' && (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={ev.src}
+                    alt="Evidence image"
+                    className="rounded max-h-40 w-auto"
+                    loading="lazy"
+                    referrerPolicy="no-referrer"
+                  />
+                )}
+                {ev.kind === 'text' && <span>{ev.text}</span>}
+                {ev.kind === 'blocked' && (
+                  <span className="text-gray-500 italic" role="note">
+                    {ev.reason}
+                  </span>
                 )}
               </li>
             ))}

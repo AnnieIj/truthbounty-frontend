@@ -14,8 +14,12 @@ export type AppealDecision = 'SUPPORT' | 'OPPOSE';
 export type AppealParticipationStatus =
   | 'PENDING'
   | 'CONFIRMED'
-  | 'FAILED'
-  | 'REVERTED';
+  | 'REJECTED'
+  | 'REVERTED'
+  | 'REPLACED'
+  | 'DROPPED'
+  | 'STALE'
+  | 'FAILED';
 
 /**
  * Appeal state for lifecycle tracking
@@ -155,43 +159,43 @@ export interface AppealParticipationTransaction {
   from: string;
   to: string; // Contract address
   status: AppealParticipationStatus;
-  
+
   appealId: string;
   claimId: string;
   disputeId: string;
   decision: AppealDecision;
   stakeAmount: string; // Wei amount as string
-  
+
   timestamp: string; // ISO 8601
-  blockNumber?: number;
-  
-  // Gas details
-  gasUsed?: string;
-  gasPrice?: string;
+  chainId?: number;
+
+  // On-chain finality (only present once the receipt is confirmed)
+  blockNumber?: bigint;
+  gasUsed?: bigint;
+
+  // Finality anomalies
+  replacedBy?: string; // Replacement transaction hash
+  error?: string;
 }
 
 /**
  * Simulation result for appeal participation
+ *
+ * Real eth_call simulation prepared from the canonical ABI. Never
+ * fabricates calldata, gas estimates, or projected state. When the
+ * canonical ABI does not expose `participateInAppeal`, simulation fails
+ * closed with `success: false` and no `data`.
  */
 export interface AppealSimulationResult {
   success: boolean;
-  gasEstimate?: string;
   error?: string;
-  
-  // Projected outcome
-  projectedState?: {
-    newSupportTotal: string;
-    newOpposeTotal: string;
-    potentialReward?: string;
-    riskAmount: string;
-  };
-  
-  // Transaction data
+
+  // Real encoded transaction data (only present when simulation succeeded)
   data?: {
     from: string;
     to: string;
     value?: string;
-    calldata: string;
+    calldata: `0x${string}`;
   };
 }
 
@@ -208,12 +212,76 @@ export interface AppealValidation {
     appealActive: boolean;
     walletConnected: boolean;
     correctChain: boolean;
+    supportedChain: boolean;
     sufficientBalance: boolean;
     notAlreadyParticipated: boolean;
     stakeWithinBounds: boolean;
     contractAddressValid: boolean;
     artifactVersionValid: boolean;
+    abiFunctionSupported: boolean;
   };
+}
+
+/**
+ * Lifecycle phase of an appeal participation submission attempt.
+ * Every phase maps to a real on-chain or wallet step. No phase is reached
+ * merely by guessing; unsupported artifacts fail at `unsupported`.
+ */
+export type AppealParticipationPhase =
+  | 'idle'
+  | 'validating'
+  | 'allowance'
+  | 'approving'
+  | 'simulating'
+  | 'submitting'
+  | 'confirming'
+  | 'confirmed'
+  | 'rejected'
+  | 'reverted'
+  | 'replaced'
+  | 'dropped'
+  | 'stale'
+  | 'unsupported'
+  | 'error';
+
+/**
+ * Machine-readable error codes for appeal participation failures.
+ * Thrown as `AppealParticipationError` so callers/tests can match `code`.
+ */
+export type AppealParticipationErrorCode =
+  | 'UNCONNECTED'
+  | 'WRONG_NETWORK'
+  | 'UNSUPPORTED_CHAIN'
+  | 'INVALID_CONTRACT_ADDRESS'
+  | 'INVALID_ARTIFACT'
+  | 'UNSUPPORTED_ABI'
+  | 'APPEAL_CLOSED'
+  | 'ALREADY_PARTICIPATED'
+  | 'INVALID_STAKE'
+  | 'INSUFFICIENT_BALANCE'
+  | 'INVALID_APPEAL_ID'
+  | 'APPROVAL_REJECTED'
+  | 'ALLOWANCE_INSUFFICIENT'
+  | 'SIMULATION_REVERTED'
+  | 'USER_REJECTED'
+  | 'TRANSACTION_REVERTED'
+  | 'TX_DROPPED'
+  | 'TX_REPLACED'
+  | 'STALE_RECEIPT'
+  | 'UNEXPECTED_ERROR';
+
+/**
+ * Error thrown by appeal participation flows. Carries a stable
+ * machine-readable `code` in addition to the human-readable message.
+ */
+export class AppealParticipationError extends Error {
+  readonly code: AppealParticipationErrorCode;
+
+  constructor(code: AppealParticipationErrorCode, message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = 'AppealParticipationError';
+    this.code = code;
+  }
 }
 
 /**
