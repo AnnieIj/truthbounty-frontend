@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { submitVerification } from '@/app/lib/api';
 import { TransactionStatus } from './TransactionStatus';
+import { useTranslations } from '@/i18n';
 import {
   clearPendingTransaction,
   trackPendingTransaction,
@@ -15,12 +16,14 @@ export function VerificationActions({
   claimId: string;
   stakeAmount: number;
 }) {
+  const t = useTranslations('verification');
+  const tCommon = useTranslations('common');
   const [status, setStatus] = useState<'idle' | 'pending' | 'success' | 'error'>('idle');
 
   const submit = async (decision: 'verify' | 'reject') => {
     if (!stakeAmount || stakeAmount <= 0) {
       setStatus('error');
-      console.error('Stake amount is required and must be greater than 0');
+      console.error(t('errors.stakeAmountInvalid'));
       return;
     }
 
@@ -31,8 +34,8 @@ export function VerificationActions({
       trackPendingTransaction({
         id: transactionId,
         kind: 'verification',
-        title: decision === 'verify' ? 'Verification stake pending' : 'Rejection stake pending',
-        description: `Claim ${claimId} is waiting for wallet confirmation.`,
+        title: decision === 'verify' ? t('verificationStakePending') : t('rejectionStakePending'),
+        description: t('waitingWalletConfirmation', { claimId }),
         txHash: null,
         chainId: null,
         machineState: 'preparing',
@@ -52,13 +55,13 @@ export function VerificationActions({
         onClick={() => submit('verify')}
         className="btn-primary flex-1 py-3 px-4 text-base min-h-[44px] touch-manipulation transition-colors"
       >
-        Verify
+        {t('verify')}
       </button>
       <button
         onClick={() => submit('reject')}
         className="btn-danger flex-1 py-3 px-4 text-base min-h-[44px] touch-manipulation transition-colors"
       >
-        Reject
+        {t('reject')}
       </button>
 
       <TransactionStatus status={status} />

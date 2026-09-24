@@ -1,0 +1,630 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "close": "Close",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "submit": "Submit",
+    "retry": "Retry",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "search": "Search",
+    "filter": "Filter",
+    "clear": "Clear",
+    "apply": "Apply",
+    "reset": "Reset",
+    "of": "of",
+    "to": "to",
+    "from": "from",
+    "at": "at",
+    "by": "by",
+    "in": "in",
+    "on": "on",
+    "ago": "ago",
+    "total": "Total",
+    "count": "Count",
+    "amount": "Amount",
+    "items": "{count, plural, =0 {no items} =1 {1 item} other {# items}}",
+    "selected": "{count, plural, =0 {none selected} =1 {1 selected} other {# selected}}",
+    "results": "{count, plural, =0 {no results} =1 {1 result} other {# results}}",
+    "minutes": "{count, plural, =1 {1 minute} other {# minutes}}",
+    "hours": "{count, plural, =1 {1 hour} other {# hours}}",
+    "days": "{count, plural, =1 {1 day} other {# days}}",
+    "weeks": "{count, plural, =1 {1 week} other {# weeks}}",
+    "months": "{count, plural, =1 {1 month} other {# months}}",
+    "years": "{count, plural, =1 {1 year} other {# years}}"
+  },
+  
+  "wallet": {
+    "connect": "Connect Wallet",
+    "disconnect": "Disconnect",
+    "connecting": "Connecting...",
+    "connected": "Connected",
+    "notConnected": "Wallet not connected",
+    "wrongNetwork": "Wrong network",
+    "switchNetwork": "Switch Network",
+    "copyAddress": "Copy wallet address {address}",
+    "addressCopied": "Address copied to clipboard",
+    "connectPrompt": "Please connect your wallet to continue",
+    "connectToSubmit": "Connect your wallet to submit",
+    "noConnector": "No wallet connector found. Please install a browser wallet and reload.",
+    "connectFailed": "Could not open the wallet. Please install a browser wallet and try again."
+  },
+
+  "transaction": {
+    "states": {
+      "idle": "Ready",
+      "preparing": "Preparing transaction",
+      "signatureRequested": "Signature requested",
+      "submitted": "Transaction submitted",
+      "confirming": "Confirming",
+      "confirmed": "Confirmed",
+      "safe": "Safe",
+      "indexing": "Indexing",
+      "finalized": "Finalized",
+      "dropped": "Dropped",
+      "replaced": "Replaced",
+      "reverted": "Reverted",
+      "failed": "Failed",
+      "pending": "Pending",
+      "success": "Success"
+    },
+    "stateDescriptions": {
+      "idle": "No transaction in progress",
+      "preparing": "Building transaction payload and validating parameters",
+      "signatureRequested": "Waiting for your signature in the wallet",
+      "submitted": "Transaction broadcast to network, waiting for confirmation",
+      "confirming": "Transaction included in block, accumulating confirmations",
+      "confirmed": "Transaction confirmed with sufficient block depth",
+      "safe": "Transaction reached safe finality threshold",
+      "indexing": "Transaction finalized, indexing on-chain data",
+      "finalized": "Transaction complete and indexed",
+      "dropped": "Transaction dropped from mempool without confirmation",
+      "replaced": "Transaction replaced by another with higher gas",
+      "reverted": "Transaction reverted on-chain",
+      "failed": "Transaction failed to complete"
+    },
+    "labels": {
+      "hash": "Transaction Hash",
+      "blockNumber": "Block Number",
+      "confirmations": "Confirmations",
+      "confirmationsCount": "{count} confirmation",
+      "confirmationsCount_other": "{count} confirmations",
+      "gasUsed": "Gas Used",
+      "status": "Status",
+      "timestamp": "Timestamp",
+      "chainId": "Chain ID",
+      "fromAddress": "From",
+      "toAddress": "To",
+      "value": "Value",
+      "nonce": "Nonce",
+      "blockHash": "Block Hash",
+      "transactionIndex": "Transaction Index",
+      "gasPrice": "Gas Price",
+      "maxFeePerGas": "Max Fee Per Gas",
+      "maxPriorityFeePerGas": "Max Priority Fee",
+      "type": "Type"
+    },
+    "actions": {
+      "viewOnExplorer": "View on Explorer",
+      "copyHash": "Copy Transaction Hash",
+      "retry": "Retry Transaction",
+      "cancel": "Cancel Transaction",
+      "speedUp": "Speed Up",
+      "viewDetails": "View Details",
+      "hideDetails": "Hide Details"
+    },
+    "messages": {
+      "waitingConfirmation": "Waiting for wallet confirmation",
+      "openWallet": "Please check your wallet to sign the transaction",
+      "broadcasting": "Broadcasting to network",
+      "waitingReceipt": "Waiting for transaction receipt",
+      "checkingFinality": "Checking finality status",
+      "indexingClaim": "Indexing claim data",
+      "indexingVerification": "Indexing verification data",
+      "completed": "Transaction completed successfully",
+      "userRejected": "Transaction rejected by user",
+      "failed": "Transaction failed",
+      "awaitingSignature": "Awaiting your signature",
+      "processingOnChain": "Processing on-chain",
+      "confirmationProgress": "Confirmation {current} of {required}",
+      "safetyCheck": "Performing safety checks",
+      "finalizing": "Finalizing transaction"
+    },
+    "errors": {
+      "USER_REJECTED": "Transaction rejected by user",
+      "WRONG_NETWORK": "Wrong network. Connected to chain {connectedChain}, expected chain {expectedChain}",
+      "REVERT": "Transaction reverted on-chain",
+      "DROPPED": "Transaction dropped from mempool",
+      "REPLACED": "Transaction replaced by {replacedByHash}",
+      "STALE_RECEIPT": "Stale receipt: chain mismatch (receipt chain {receiptChain}, expected {expectedChain})",
+      "INVALID_TRANSITION": "Invalid state transition: cannot move from {fromState} to {toState}",
+      "INVALID_PERSISTED_STATE": "Invalid persisted state data",
+      "timeout": "Transaction timeout after {seconds} seconds",
+      "insufficientFunds": "Insufficient funds for transaction",
+      "gasEstimationFailed": "Gas estimation failed",
+      "networkError": "Network error: {message}",
+      "unknownError": "Unknown error occurred",
+      "nonceTooLow": "Nonce too low: transaction already processed",
+      "nonceTooHigh": "Nonce too high: please retry",
+      "gasLimitExceeded": "Gas limit exceeded",
+      "intrinsicGasTooLow": "Intrinsic gas too low",
+      "maxFeePerGasTooLow": "Max fee per gas too low",
+      "replacementUnderpriced": "Replacement transaction underpriced",
+      "executionReverted": "Execution reverted: {reason}"
+    },
+    "machine": {
+      "eventPrepare": "Preparing transaction",
+      "eventRequestSignature": "Requesting signature",
+      "eventUserRejected": "User rejected",
+      "eventSubmit": "Submitting transaction",
+      "eventConfirm": "Confirming transaction",
+      "eventMarkSafe": "Marking as safe",
+      "eventIndexing": "Indexing data",
+      "eventFinalize": "Finalizing",
+      "eventDrop": "Transaction dropped",
+      "eventReplace": "Transaction replaced",
+      "eventRevert": "Transaction reverted",
+      "eventRetry": "Retrying transaction",
+      "eventReset": "Resetting state"
+    },
+    "persistence": {
+      "saved": "Transaction state saved",
+      "restored": "Transaction state restored",
+      "cleared": "Transaction state cleared",
+      "migrated": "State migrated to new version",
+      "corrupted": "Stored state corrupted, using default"
+    }
+  },
+
+  "claim": {
+    "title": "Claim",
+    "claims": "Claims",
+    "submitClaim": "Submit a Claim",
+    "submittingClaim": "Submitting your claim...",
+    "claimSubmitted": "Claim submitted successfully",
+    "viewClaim": "View Claim",
+    "editClaim": "Edit Claim",
+    "deleteClaim": "Delete Claim",
+    "noClaims": "No claims found",
+    "loadingClaims": "Loading claims...",
+    "claimDetails": "Claim Details",
+    "claimId": "Claim ID",
+    "claimHash": "Claim Hash",
+    "contentDigest": "Content Digest",
+    
+    "fields": {
+      "title": "Title",
+      "category": "Category",
+      "impact": "Impact",
+      "source": "Source",
+      "description": "Description",
+      "evidence": "Evidence",
+      "bountyAmount": "Bounty Amount",
+      "bountyAsset": "Bounty Asset",
+      "status": "Status",
+      "createdAt": "Created",
+      "updatedAt": "Updated",
+      "submitter": "Submitter",
+      "verifiers": "Verifiers",
+      "deadline": "Deadline",
+      "frozenConfig": "Configuration"
+    },
+    
+    "placeholders": {
+      "title": "Enter claim title",
+      "category": "Select category",
+      "impact": "Describe impact",
+      "source": "https://example.com",
+      "description": "Describe the claim in detail",
+      "evidence": "Add supporting evidence"
+    },
+    
+    "validation": {
+      "titleRequired": "Title is required",
+      "titleMinLength": "Title must be at least {min} characters",
+      "titleMaxLength": "Title must not exceed {max} characters",
+      "categoryRequired": "Category is required",
+      "impactRequired": "Impact is required",
+      "sourceRequired": "Source is required",
+      "sourceInvalidUrl": "Enter a valid URL",
+      "descriptionRequired": "Description is required",
+      "descriptionMinLength": "Description must be at least {min} characters",
+      "descriptionMaxLength": "Description must not exceed {max} characters",
+      "amountPositive": "Amount must be positive",
+      "amountRequired": "Amount is required",
+      "evidenceRequired": "At least one piece of evidence is required"
+    },
+    
+    "creation": {
+      "title": "Create New Claim",
+      "steps": {
+        "prepare": "Prepare claim data",
+        "validate": "Validate inputs",
+        "approve": "Approve token spending",
+        "simulate": "Simulate transaction",
+        "submit": "Submit to blockchain",
+        "confirm": "Confirm on-chain",
+        "reconcile": "Reconcile with indexer"
+      },
+      "approvalNeeded": "Token approval required",
+      "approvalDescription": "You need to approve the contract to spend {amount} {symbol}",
+      "approvingToken": "Approving {symbol}...",
+      "simulatingTransaction": "Simulating transaction...",
+      "submittingTransaction": "Submitting transaction...",
+      "awaitingConfirmation": "Awaiting blockchain confirmation...",
+      "reconcilingData": "Reconciling indexed data..."
+    },
+    
+    "errors": {
+      "INVALID_CHAIN": "Invalid chain configuration",
+      "INVALID_ADDRESS": "Invalid address: {address}",
+      "INVALID_CONTENT_DIGEST": "Content digest must be a 32-byte hex string (0x + 64 hex chars)",
+      "INVALID_AMOUNT": "Amount must be a positive integer",
+      "INVALID_CONFIG": "Invalid frozen configuration: {reason}",
+      "INVALID_ARTIFACT_VERSION": "Unsupported artifact version. Expected \"{expected}\", received \"{received}\"",
+      "WALLET_NOT_CONNECTED": "Wallet not connected. Connect a wallet before creating a claim.",
+      "USER_REJECTED": "Transaction rejected by user",
+      "SIMULATION_REVERTED": "Simulation reverted: {reason}",
+      "TRANSACTION_REVERTED": "Transaction reverted on-chain",
+      "TX_NOT_FOUND": "Transaction not found on network",
+      "ALLOWANCE_INSUFFICIENT": "Insufficient token allowance",
+      "APPROVAL_FAILED": "Token approval failed: {reason}",
+      "CLAIM_NOT_INDEXED": "Claim transaction confirmed but indexed claim could not be reconciled",
+      "UNEXPECTED_ERROR": "An unexpected error occurred",
+      "submissionFailed": "Failed to submit claim. Please try again.",
+      "configIncomplete": "Claim contract configuration is incomplete. Please contact support.",
+      "networkMismatch": "Wrong network. Connected to chain {connected}, expected {expected}.",
+      "frozenConfigTooLarge": "Frozen configuration exceeds maximum size of {maxSize} bytes",
+      "contentDigestInvalid": "Content digest must be valid hex bytes"
+    },
+    
+    "status": {
+      "idle": "Not started",
+      "validating": "Validating inputs",
+      "approving": "Approving token",
+      "simulating": "Simulating transaction",
+      "submitting": "Submitting to blockchain",
+      "confirming": "Confirming on-chain",
+      "reconciling": "Reconciling with indexer",
+      "success": "Claim created successfully",
+      "error": "Error occurred",
+      "PENDING": "Pending",
+      "ACTIVE": "Active",
+      "DISPUTED": "Disputed",
+      "SETTLED": "Settled",
+      "EXPIRED": "Expired",
+      "REJECTED": "Rejected"
+    },
+    
+    "trust": {
+      "lowTrustWarning": "⚠️ Low trust score",
+      "lowTrustBanner": "Your account has a low trust score. Claims may require additional verification.",
+      "tooltipTitle": "Trust Score Factors",
+      "verified": "Verified",
+      "notVerified": "Not verified",
+      "reputation": "Reputation: {score}",
+      "accountAge": "Account age: {days} days",
+      "suspicious": "Suspicious activity detected",
+      "buildTrust": "Build trust by verifying your identity and participating in the community"
+    },
+    
+    "categories": {
+      "politics": "Politics",
+      "science": "Science",
+      "health": "Health",
+      "technology": "Technology",
+      "business": "Business",
+      "entertainment": "Entertainment",
+      "other": "Other"
+    },
+    
+    "impacts": {
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "critical": "Critical"
+    }
+  },
+
+  "verification": {
+    "title": "Verification",
+    "verify": "Verify",
+    "reject": "Reject",
+    "verifying": "Verifying...",
+    "rejecting": "Rejecting...",
+    "verified": "Verified",
+    "rejected": "Rejected",
+    "pending": "Pending verification",
+    "stake": "Stake Amount",
+    "stakeRequired": "Stake amount is required and must be greater than 0",
+    "submitVerification": "Submit Verification",
+    "verificationStakePending": "Verification stake pending",
+    "rejectionStakePending": "Rejection stake pending",
+    "waitingWalletConfirmation": "Claim {claimId} is waiting for wallet confirmation.",
+    "myVerifications": "My Verifications",
+    "recentVerifications": "Recent Verifications",
+    "verificationHistory": "Verification History",
+    "decision": "Decision",
+    "confidence": "Confidence",
+    "stakeAmount": "Stake Amount",
+    "verifier": "Verifier",
+    "verifiedAt": "Verified At",
+    
+    "statuses": {
+      "PENDING": "Pending",
+      "VERIFIED": "Verified",
+      "REJECTED": "Rejected",
+      "SETTLED": "Settled",
+      "DISPUTED": "Disputed"
+    },
+    
+    "decisions": {
+      "TRUE": "True",
+      "FALSE": "False",
+      "UNCERTAIN": "Uncertain"
+    },
+    
+    "actions": {
+      "submitStake": "Submit Stake",
+      "increaseStake": "Increase Stake",
+      "withdrawStake": "Withdraw Stake",
+      "viewDetails": "View Verification Details"
+    },
+    
+    "messages": {
+      "stakeSubmitted": "Verification stake submitted successfully",
+      "stakeIncreased": "Stake increased successfully",
+      "stakeWithdrawn": "Stake withdrawn successfully",
+      "preparingStake": "Preparing stake transaction",
+      "confirmingStake": "Confirming stake on-chain",
+      "stakePending": "Your stake transaction is pending",
+      "verificationComplete": "Verification recorded on-chain"
+    },
+    
+    "errors": {
+      "stakeAmountInvalid": "Stake amount is required and must be greater than 0",
+      "submissionFailed": "Verification submission failed",
+      "insufficientBalance": "Insufficient balance for stake",
+      "networkError": "Network error occurred",
+      "claimNotFound": "Claim not found",
+      "alreadyVerified": "You have already verified this claim",
+      "claimExpired": "Claim has expired",
+      "claimSettled": "Claim already settled",
+      "invalidDecision": "Invalid verification decision",
+      "stakeTooLow": "Stake amount below minimum required"
+    },
+    
+    "warnings": {
+      "highRisk": "⚠️ High risk: This claim has conflicting verifications",
+      "lowConfidence": "⚠️ Low confidence: Consider reviewing more evidence",
+      "firstVerification": "You'll be the first to verify this claim",
+      "majorityOpposed": "Most verifiers disagree with this decision"
+    }
+  },
+
+  "dispute": {
+    "title": "Dispute",
+    "disputes": "Disputes",
+    "openDispute": "Open Dispute",
+    "disputeOpened": "Dispute opened",
+    "disputePending": "Dispute pending",
+    "disputeResolved": "Dispute resolved",
+    "submitDispute": "Submit Dispute",
+    "reason": "Dispute Reason",
+    "evidence": "Dispute Evidence",
+    "myDisputes": "My Disputes",
+    "activeDisputes": "Active Disputes",
+    "resolvedDisputes": "Resolved Disputes",
+    "disputeId": "Dispute ID",
+    "claimId": "Claim ID",
+    "disputant": "Disputant",
+    "createdAt": "Created",
+    "resolvedAt": "Resolved",
+    "resolution": "Resolution",
+    
+    "statuses": {
+      "PENDING": "Pending",
+      "ACTIVE": "Active",
+      "RESOLVED": "Resolved",
+      "DISMISSED": "Dismissed",
+      "APPEALED": "Appealed"
+    },
+    
+    "reasons": {
+      "FRAUD": "Fraudulent claim",
+      "INSUFFICIENT_EVIDENCE": "Insufficient evidence",
+      "MISLEADING": "Misleading information",
+      "DUPLICATE": "Duplicate claim",
+      "VIOLATION": "Protocol violation",
+      "OTHER": "Other"
+    },
+    
+    "actions": {
+      "submit": "Submit Dispute",
+      "respond": "Respond to Dispute",
+      "vote": "Vote on Dispute",
+      "viewDetails": "View Dispute Details",
+      "addEvidence": "Add Evidence"
+    },
+    
+    "messages": {
+      "disputeSubmitted": "Dispute submitted successfully",
+      "responseSubmitted": "Response submitted",
+      "voteRecorded": "Vote recorded",
+      "disputeResolved": "Dispute has been resolved",
+      "preparingDispute": "Preparing dispute transaction",
+      "confirmingDispute": "Confirming dispute on-chain",
+      "awaitingResolution": "Awaiting community resolution"
+    },
+    
+    "errors": {
+      "reasonRequired": "Dispute reason is required",
+      "evidenceRequired": "Evidence is required",
+      "submissionFailed": "Dispute submission failed",
+      "alreadyDisputed": "This claim is already disputed",
+      "claimNotFound": "Claim not found",
+      "claimSettled": "Claim already settled",
+      "insufficientStake": "Insufficient stake for dispute",
+      "invalidReason": "Invalid dispute reason"
+    }
+  },
+
+  "appeal": {
+    "title": "Appeal",
+    "appeals": "Appeals",
+    "submitAppeal": "Submit Appeal",
+    "appealPending": "Appeal pending",
+    "appealAccepted": "Appeal accepted",
+    "appealRejected": "Appeal rejected",
+    "myAppeals": "My Appeals",
+    "activeAppeals": "Active Appeals",
+    "appealId": "Appeal ID",
+    "appellant": "Appellant",
+    "createdAt": "Created",
+    "resolvedAt": "Resolved",
+    "grounds": "Appeal Grounds",
+    "outcome": "Outcome",
+    
+    "statuses": {
+      "PENDING": "Pending",
+      "UNDER_REVIEW": "Under Review",
+      "ACCEPTED": "Accepted",
+      "REJECTED": "Rejected",
+      "WITHDRAWN": "Withdrawn"
+    },
+    
+    "grounds": {
+      "PROCEDURAL_ERROR": "Procedural error",
+      "NEW_EVIDENCE": "New evidence available",
+      "MISINTERPRETATION": "Misinterpretation of rules",
+      "BIAS": "Bias in decision",
+      "OTHER": "Other"
+    },
+    
+    "actions": {
+      "submit": "Submit Appeal",
+      "withdraw": "Withdraw Appeal",
+      "respond": "Respond to Appeal",
+      "viewDetails": "View Appeal Details"
+    },
+    
+    "messages": {
+      "appealSubmitted": "Appeal submitted successfully",
+      "appealWithdrawn": "Appeal withdrawn",
+      "responseSubmitted": "Response submitted",
+      "appealAccepted": "Your appeal has been accepted",
+      "appealRejected": "Your appeal has been rejected",
+      "preparingAppeal": "Preparing appeal transaction",
+      "confirmingAppeal": "Confirming appeal on-chain"
+    },
+    
+    "errors": {
+      "groundsRequired": "Appeal grounds are required",
+      "descriptionRequired": "Description is required",
+      "submissionFailed": "Appeal submission failed",
+      "alreadyAppealed": "You have already appealed this decision",
+      "disputeNotFound": "Dispute not found",
+      "appealWindowClosed": "Appeal window has closed",
+      "insufficientStake": "Insufficient stake for appeal"
+    }
+  },
+
+  "settlement": {
+    "title": "Settlement",
+    "settlements": "Settlements",
+    "pending": "Settlement pending",
+    "finalized": "Settlement finalized",
+    "distribute": "Distribute Rewards",
+    "distributing": "Distributing rewards...",
+    "distributed": "Rewards distributed",
+    "myRewards": "My Rewards",
+    "totalRewards": "Total Rewards",
+    "claimRewards": "Claim Rewards",
+    "settlementId": "Settlement ID",
+    "settledAt": "Settled At",
+    "totalAmount": "Total Amount",
+    "winners": "Winners",
+    "losers": "Losers",
+    
+    "statuses": {
+      "PENDING": "Pending",
+      "CALCULATING": "Calculating",
+      "READY": "Ready to Finalize",
+      "FINALIZED": "Finalized",
+      "DISTRIBUTED": "Distributed",
+      "FAILED": "Failed"
+    },
+    
+    "types": {
+      "VERIFICATION": "Verification Settlement",
+      "DISPUTE": "Dispute Settlement",
+      "APPEAL": "Appeal Settlement"
+    },
+    
+    "actions": {
+      "finalize": "Finalize Settlement",
+      "claimReward": "Claim Your Reward",
+      "viewBreakdown": "View Reward Breakdown",
+      "viewParticipants": "View Participants"
+    },
+    
+    "messages": {
+      "calculatingRewards": "Calculating reward distribution",
+      "readyToFinalize": "Settlement is ready to be finalized",
+      "finalizing": "Finalizing settlement on-chain",
+      "finalized": "Settlement finalized successfully",
+      "rewardsClaimed": "Rewards claimed successfully",
+      "awaitingFinalization": "Awaiting settlement finalization",
+      "distributionInProgress": "Reward distribution in progress"
+    },
+    
+    "breakdown": {
+      "verifierRewards": "Verifier Rewards",
+      "disputantRewards": "Disputant Rewards",
+      "protocolFee": "Protocol Fee",
+      "yourShare": "Your Share",
+      "correctVerifiers": "Correct Verifiers",
+      "incorrectVerifiers": "Incorrect Verifiers",
+      "totalPool": "Total Pool"
+    },
+    
+    "errors": {
+      "notFinalized": "Settlement not yet finalized",
+      "alreadyClaimed": "You have already claimed your reward",
+      "noReward": "You have no reward to claim",
+      "finalizationFailed": "Settlement finalization failed",
+      "claimFailed": "Reward claim failed",
+      "calculationError": "Error calculating rewards",
+      "insufficientFunds": "Insufficient funds in settlement pool"
+    }
+  },
+
+  "errors": {
+    "generic": "An error occurred",
+    "networkError": "Network error. Please check your connection.",
+    "timeout": "Request timed out",
+    "unauthorized": "Unauthorized access",
+    "forbidden": "Access forbidden",
+    "notFound": "Resource not found",
+    "serverError": "Server error occurred",
+    "validationError": "Validation error",
+    "tryAgain": "Please try again",
+    "contactSupport": "If the problem persists, please contact support"
+  },
+
+  "accessibility": {
+    "skipToContent": "Skip to content",
+    "closeDialog": "Close dialog",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu",
+    "loading": "Loading content",
+    "noResults": "No results found"
+  }
+}
