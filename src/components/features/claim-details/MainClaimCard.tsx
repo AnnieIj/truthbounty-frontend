@@ -8,6 +8,7 @@ import {
   ThumbsUp,
 } from "lucide-react";
 import { useState } from "react";
+import { sanitizeText, safeUrl } from "@/lib/security/evidence-sanitizer";
 import { Dispute } from "@/app/types/dispute";
 import { OpenDispute } from "../disputes/OpenDispute";
 import { DisputeVoting } from "../disputes/DisputeVoting";
@@ -30,6 +31,12 @@ export const MainClaimCard = ({ data, isLoading = false }: MainClaimCardProps) =
   const totalVotes = data.votesFor + data.votesAgainst;
   const forPercentage = (data.votesFor / totalVotes) * 100;
   const againstPercentage = (data.votesAgainst / totalVotes) * 100;
+
+  // V2-FE-075 — the claim source string is untrusted content. Sanitize the
+  // display text and validate the URL; unsafe/missing URLs fail closed to a
+  // plain text label instead of a dead `href="#"` placeholder anchor.
+  const safeSource = sanitizeText(data.source, 300);
+  const sourceCheck = safeUrl(data.source);
 
   const handleOpenDispute = async (payload: { reason: string; initialStake: number }) => {
     console.log("Opening dispute:", payload);
@@ -68,12 +75,19 @@ export const MainClaimCard = ({ data, isLoading = false }: MainClaimCardProps) =
       <h1 className="text-xl sm:text-2xl font-bold text-white mb-3">{data.title}</h1>
 
       <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4 text-sm text-gray-400 mb-6 sm:mb-8">
-        <a
-          href="#"
-          className="flex items-center hover:text-gray-200 transition-colors"
-        >
-          {data.source} <ExternalLink size={14} className="ml-1" aria-hidden="true" />
-        </a>
+        {sourceCheck.ok ? (
+          <a
+            href={sourceCheck.href}
+            target="_blank"
+            rel="noopener noreferrer nofollow"
+            className="flex items-center hover:text-gray-200 transition-colors"
+            aria-label={`Claim source: ${safeSource} (opens in new tab)`}
+          >
+            {safeSource} <ExternalLink size={14} className="ml-1" aria-hidden="true" />
+          </a>
+        ) : (
+          <span className="flex items-center">{safeSource}</span>
+        )}
         <span className="flex items-center">
           <Clock size={14} className="mr-1" /> {data.timeAgo}
         </span>
