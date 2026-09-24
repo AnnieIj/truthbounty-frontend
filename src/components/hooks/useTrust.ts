@@ -83,15 +83,22 @@ export function useTrustForAddress(address?: string): TrustInfo {
     return () => window.removeEventListener("storage", handleStorage);
   }, []);
 
-  // Stable randomised demo values – these should be replaced by API
-  // calls once backend endpoints for reputation/account-age exist.
-  const [mock] = useState(() => ({
-    reputation: Math.floor(Math.random() * 100),
-    accountAgeDays: Math.floor(Math.random() * 30),
-    suspicious: Math.random() < 0.2,
-  }));
+  const base: Partial<TrustInfo> = {
+    reputation: 0,
+    accountAgeDays: 0,
+    suspicious: false,
+    isVerified: false,
+  };
 
-  const base = address ? makeTrustFromAddress(address) : mock;
+  if (address) {
+    const derived = makeTrustFromAddress(address);
+    Object.assign(base, {
+      reputation: derived.reputation,
+      accountAgeDays: derived.accountAgeDays,
+      suspicious: derived.suspicious,
+      isVerified: derived.isVerified,
+    });
+  }
 
   const trust = {
     ...base,

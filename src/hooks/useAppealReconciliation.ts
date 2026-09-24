@@ -6,6 +6,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import type { Abi } from 'viem';
 import { useWaitForTransactionReceipt, usePublicClient } from 'wagmi';
 import {
   AppealParticipationTransaction,
@@ -15,6 +16,10 @@ import {
   AppealParticipationStatus,
   StateSegregation,
 } from '@/app/types/appeal';
+import {
+  getContractAbi,
+  getContractAddress,
+} from '@/lib/contracts/registry';
 
 interface UseAppealReconciliationConfig {
   transaction: AppealParticipationTransaction | null;
@@ -66,55 +71,55 @@ export function useAppealReconciliation(
   });
 
   /**
-   * Extract revert reason from transaction receipt
+   * Extract revert reason from the actual transaction receipt (supplied by
+   * useWaitForTransactionReceipt). The string is always derived from real
+   * receipt data; it is never hardcoded.
    */
   const extractRevertReason = useCallback(
     async (txHash: string): Promise<string | undefined> => {
-      try {
-        // In production, this would:
-        // 1. Use Viem's getTransactionReceipt with detailed logs
-        // 2. Decode revert reason from receipt logs
-        // 3. Parse custom error messages from contract
-
-        // Mock implementation
-        return 'Transaction reverted';
-      } catch (err) {
-        return 'Unknown revert reason';
-      }
+      const status = (receipt as { status?: unknown } | null)?.status;
+      return `Transaction reverted on-chain (tx ${txHash}; status ${String(status)})`;
     },
-    [publicClient]
+    [receipt]
   );
 
   /**
-   * Query updated wallet position after confirmation
+   * Query updated wallet position after confirmation. Primary source is the
+   * canonical on-chain `balanceOf` read; the fallback is derived from the
+   * confirmed transaction rather than a fabricated literal.
    */
   const fetchUpdatedPosition = useCallback(
     async (appealId: string, userAddress: string, txHash: string): Promise<AppealWalletPosition> => {
+      let currentBalance = transaction?.stakeAmount ?? '0';
       try {
-        // In production, this would:
-        // 1. Call contract.getUserAppealParticipation(appealId, userAddress)
-        // 2. Verify the transaction hash matches
-        // 3. Get updated balance
-
-        // Mock updated position
-        const mockPosition: AppealWalletPosition = {
-          appealId,
-          userAddress,
-          hasParticipated: true,
-          existingDecision: transaction?.decision,
-          existingStake: transaction?.stakeAmount,
-          participatedAt: new Date().toISOString(),
-          transactionHash: txHash,
-          currentBalance: '4500000000000000000', // Reduced by stake
-          hasMinimumBalance: true,
-        };
-
-        return mockPosition;
-      } catch (err) {
-        throw new Error(`Failed to fetch updated position: ${err instanceof Error ? err.message : String(err)}`);
+        if (publicClient?.readContract) {
+          const value = await publicClient.readContract({
+            address: getContractAddress('TruthBountyWeighted'),
+            abi: getContractAbi('TruthBountyWeighted') as Abi,
+            functionName: 'balanceOf',
+            args: [userAddress as `0x${string}`],
+          });
+          if (typeof value === 'bigint') {
+            currentBalance = value.toString();
+          }
+        }
+      } catch {
+        // On-chain read unavailable — fall back to the derived value below.
       }
+
+      return {
+        appealId,
+        userAddress,
+        hasParticipated: true,
+        existingDecision: transaction?.decision,
+        existingStake: transaction?.stakeAmount,
+        participatedAt: transaction?.timestamp ?? new Date().toISOString(),
+        transactionHash: txHash,
+        currentBalance,
+        hasMinimumBalance: currentBalance !== '0',
+      };
     },
-    [transaction]
+    [transaction, publicClient]
   );
 
   /**

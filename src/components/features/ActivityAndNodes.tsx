@@ -10,8 +10,9 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { activityData } from "@/data/mock-data";
 import { ActivityChartSkeleton } from "@/components/skeletons";
+
+const activityData: Array<{ name: string; verified: number; disputed: number; false: number }> = [];
 
 interface ActivityAndNodesProps {
   isLoading?: boolean;

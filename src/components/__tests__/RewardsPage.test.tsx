@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 
+
 jest.mock('wagmi', () => ({
   useAccount: () => ({ address: '0xabc' }),
   useWriteContract: () => ({ data: null, writeContract: jest.fn(), isPending: false }),
@@ -22,7 +23,7 @@ jest.mock('viem/chains', () => ({
 describe('RewardsPage claim button state', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    (global.fetch as jest.Mock).mockResolvedValue({
+    (global as any).fetch = jest.fn().mockResolvedValue({
       json: jest.fn().mockResolvedValue([]),
     });
   });
@@ -31,14 +32,14 @@ describe('RewardsPage claim button state', () => {
     const RewardsPage = (await import('../RewardsPage')).default;
     render(<RewardsPage />);
 
-    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/rewards?user=0xabc'));
+    await waitFor(() => expect((global as any).fetch).toHaveBeenCalledWith('/api/rewards?user=0xabc'));
 
     expect(screen.getByRole('button', { name: /claim rewards/i })).toBeDisabled();
     expect(screen.getByText(/no rewards available/i)).toBeInTheDocument();
   });
 
   it('enables claim button when rewards are available', async () => {
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
+    ((global as any).fetch as jest.Mock).mockResolvedValueOnce({
       json: jest.fn().mockResolvedValue([{ amount: 10, reason: 'Stake bonus' }]),
     });
 

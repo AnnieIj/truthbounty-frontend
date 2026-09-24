@@ -12,6 +12,7 @@ import {
   FeatureFlagPanel,
 } from '@/components/providers';
 import { SiweAuthProvider } from '@/context/SiweAuthProvider';
+import ErrorBoundary from '@/components/common/ErrorBoundary';
 
 interface ProvidersProps {
   children: ReactNode;
@@ -25,7 +26,9 @@ export function Providers({ children }: ProvidersProps) {
           <RainbowKitThemedProvider>
             <SiweAuthProvider>
               <FeatureFlagProvider enablePersistence={true}>
-                {children}
+                <ErrorBoundary>
+                  {children}
+                </ErrorBoundary>
                 {/* Feature flag panel for development debugging */}
                 <FeatureFlagPanel defaultOpen={false} position="bottom-right" />
               </FeatureFlagProvider>
