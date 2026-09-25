@@ -22,6 +22,7 @@ This frontend translates complex cryptoeconomic systems into a **human-centered 
 ## 🚀 Features
 
 - ✅ **Submit & Verify Claims** - Community-driven fact-checking interface
+- ✅ **Event-Derived Lifecycle Timeline** - Canonical claim state tracking with real-time updates (V2-FE-014)
 - 🎯 **Reputation Dashboard** - Real-time reputation scoring and leaderboard
 
 ### Trust & Sybil warnings

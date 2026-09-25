@@ -178,6 +178,7 @@ export type WebSocketEvent =
 Components are organized by features rather than type:
 
 - **claims/** - All claim-related components
+- **claim-lifecycle/** - Event-derived timeline visualization (V2-FE-014)
 - **verification/** - Verification workflow components
 - **disputes/** - Dispute management components
 - **worldcoin/** - Identity verification components
@@ -222,6 +223,19 @@ export function useClaims() {
     // ... other options
   });
 }
+
+// Example: useClaimLifecycleTimeline hook (V2-FE-014)
+export function useClaimLifecycleTimeline(config) {
+  // Aggregates chain events, API projections, and WebSocket updates
+  // into canonical timeline with staleness detection and reconciliation
+  return {
+    timeline, // Complete timeline with events and metadata
+    isLoading,
+    isError,
+    isStale, // Staleness detection for data integrity
+    reconcile, // Manual reconciliation function
+  };
+}
 ```
 
 ## Data Flow Patterns
@@ -244,6 +258,19 @@ User Action → Component → Mutation Hook → API → WebSocket Broadcast → 
 ### 4. Blockchain Integration Flow
 ```
 User Action → Wagmi Hook → Smart Contract → Transaction → Indexer → API → Frontend
+```
+
+### 5. Event-Derived Timeline Flow (V2-FE-014)
+```
+Chain Events → Indexer → API Projection
+                              ↓
+WebSocket Updates → useClaimLifecycleTimeline
+                              ↓
+                    Timeline State (with provenance tracking)
+                              ↓
+                    ClaimLifecycleTimeline Component
+                              ↓
+                    Accessible UI (all states)
 ```
 
 ## Type System Architecture
