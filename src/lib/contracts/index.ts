@@ -5,8 +5,13 @@ export { loadReleaseArtifacts, resolveReleaseDir } from './load-artifacts';
 export {
   evaluateWriteTarget,
   assertWriteReady,
-  getWriteGateChainId,
   WriteGateError,
-  type WriteTargetEvaluation,
-  type WriteTargetProvenance,
+  resolveCanonicalTargetAddress,
+  resolveExpectedChainId,
+} from './write-gate';
+export type {
+  WriteGateInput,
+  WriteGateResult,
+  WriteGateFailure,
+  WriteGateFailureCode,
 } from './write-gate';

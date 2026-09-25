@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from 'react';
 import { useAccount, useChainId } from 'wagmi';
-import { encodeFunctionData, keccak256, toBytes } from 'viem';
+import { encodeFunctionData } from 'viem';
 import {
   SettlementAction,
   SimulationResult,
@@ -43,6 +43,7 @@ interface SettlementSubmissionResult {
 export function useSettlementSubmission(
   config: UseSettlementSubmissionConfig = {},
 ): SettlementSubmissionResult {
+  const usingDefaultTarget = !config.contractAddress;
   const contractAddress = config.contractAddress ?? getContractAddress('TruthBountyWeighted');
   const abi = config.abi ?? getContractAbi('TruthBountyWeighted');
   const artifactVersion = getProtocolVersion();
@@ -53,7 +54,8 @@ export function useSettlementSubmission(
   const [isSimulating, setIsSimulating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [lastSubmission, setLastSubmission] = useState<SettlementSubmission | null>(null);
+  // Only populated after a real wallet write returns a hash (V2-FE-100).
+  const [lastSubmission] = useState<SettlementSubmission | null>(null);
 
   /**
    * Encode settlement function call based on action type
@@ -185,35 +187,29 @@ export function useSettlementSubmission(
           throw new Error(validationError);
         }
 
+        // V2-FE-100 readiness gate — fail closed before any submission attempt
+        const gate = evaluateWriteTarget({
+          account: userAddress ?? null,
+          chainId: activeChainId,
+          expectedChainId,
+          targetAddress: contractAddress,
+          requireCanonicalMatch: usingDefaultTarget,
+        });
+        if (!gate.ready) {
+          throw new Error(gate.reason ?? 'Wallet is not ready for settlement submission.');
+        }
+
         // First simulate to catch errors early
         const simulation = await simulateSettlement(action);
         if (!simulation.success) {
           throw new Error(simulation.error || 'Simulation failed');
         }
 
-        // Deterministic placeholder hash derived from the action (never a
-        // pseudo-random value) until the canonical wallet submission flow is
-        // wired in.
-        const mockTxHash = keccak256(
-          toBytes(
-            `${action.type}:${action.claimId}:${action.disputeId ?? ''}:${userAddress ?? ''}`,
-          ),
+        // Never fabricate a transaction hash. Settlement requires a real
+        // wallet writeContract call; without it, fail closed (V2-FE-100).
+        throw new Error(
+          'Settlement submission requires wallet writeContract integration; no synthetic transaction hash is emitted.',
         );
-        const timestamp = new Date().toISOString();
-
-        const submission: SettlementSubmission = {
-          transactionHash: mockTxHash,
-          from: userAddress!,
-          to: contractAddress,
-          status: 'pending',
-          type: action.type,
-          claimId: action.claimId,
-          disputeId: action.disputeId,
-          timestamp,
-        };
-
-        setLastSubmission(submission);
-        return submission;
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : 'Submission failed';
         setError(errorMsg);
@@ -222,7 +218,7 @@ export function useSettlementSubmission(
         setIsSubmitting(false);
       }
     },
-    [userAddress, contractAddress, validateSettlementAction, simulateSettlement]
+    [userAddress, contractAddress, activeChainId, expectedChainId, usingDefaultTarget, validateSettlementAction, simulateSettlement]
   );
 
   return {
