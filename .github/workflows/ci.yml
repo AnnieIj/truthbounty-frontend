@@ -163,8 +163,12 @@ jobs:
         run: npm run test:production-smoke:unit
       - name: Type check
         run: npm run type-check
+      - name: Check lockfile integrity
+        run: node scripts/check-lockfile.mjs
       - name: Build app
         run: npm run build
+      - name: Run secret scan (.next build output)
+        run: node scripts/secret-scan.mjs .next
 
 
   accessibility:

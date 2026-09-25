@@ -9,6 +9,7 @@ export interface SafeExternalLinkProps
   href: string;
   /** Accessible name. Falls back to the sanitized URL text when omitted. */
   children?: React.ReactNode;
+  rel?: string;
 }
 
 /**

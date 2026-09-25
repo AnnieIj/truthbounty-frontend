@@ -58,6 +58,8 @@ import {
   reconcileVerificationState,
   reconcileWithProjection,
 } from '@/app/lib/verification-reconcile';
+import { assertNoFabricatedData } from '@/lib/transaction-state';
+import type { TransactionConfirmed } from '@/app/types/transaction';
 
 export interface UseVerificationSubmissionConfig {
   /** On-chain claim id (uint256), or a "claim-<n>" style id. */
@@ -570,6 +572,26 @@ export function useVerificationSubmission(
           }),
         };
       }
+
+      const securityTx: TransactionConfirmed = {
+        state: 'confirmed',
+        hash: txHash,
+        fromAddress: address as `0x${string}`,
+        toAddress: contractAddress,
+        chainId: activeChainId,
+        timestamp: Date.now(),
+        blockNumber: (receipt.blockNumber as bigint | undefined) ?? 0n,
+        blockHash: '0x' + 'b'.repeat(64),
+        transactionIndex: 0,
+        confirmations: 1,
+        receipt: {
+          status: receipt.status === '0x1' ? 'success' : 'reverted',
+          gasUsed: 0n,
+          cumulativeGasUsed: 0n,
+          logs: [],
+        },
+      };
+      assertNoFabricatedData(securityTx);
 
       // ------------------------------------------------------------------
       // Reconcile with effective on-chain state + API projection
