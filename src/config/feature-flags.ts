@@ -25,6 +25,7 @@ export type FeatureFlag =
   | 'TRUST_SCORE_DISPLAY'
   | 'NOTIFICATION_BELL'
   | 'ADVANCED_FILTERS'
+  | 'PERFORMANCE_BUDGETS'
   | 'BETA_FEATURES';
 
 export const FEATURE_FLAG_KEYS = [
@@ -126,6 +127,9 @@ export const DEFAULT_FLAGS: Record<FeatureFlag, boolean> = {
   TRUST_SCORE_DISPLAY: true,
   NOTIFICATION_BELL: true,
   ADVANCED_FILTERS: true,
+  PERFORMANCE_BUDGETS: true,
+  
+  // Beta/Experimental
   BETA_FEATURES: false,
 };
 
@@ -251,6 +255,12 @@ export const FLAG_METADATA: Record<FeatureFlag, FeatureFlagMeta> = {
     expiresAt: null,
     safeFallback: false,
     protocolInvariantProtected: false,
+  },
+  PERFORMANCE_BUDGETS: {
+    name: 'PERFORMANCE_BUDGETS',
+    description: 'Show the frontend performance budget indicator',
+    defaultValue: true,
+    category: 'feature',
   },
   BETA_FEATURES: {
     name: 'BETA_FEATURES',
