@@ -2,6 +2,7 @@ import React from "react";
 import Sidebar from "@/components/layout/Sidebar";
 import Topbar from "@/components/layout/Topbar";
 import TrustWarningBanner from "@/components/ui/TrustWarningBanner";
+import OfflineBanner from "@/components/ui/OfflineBanner";
 
 const MainLayout = ({ children }: { children: React.ReactNode }) => {
   return (
@@ -13,6 +14,8 @@ const MainLayout = ({ children }: { children: React.ReactNode }) => {
       <Sidebar />
       <div className="flex-1 flex flex-col min-w-0">
         <Topbar />
+      {/* global offline / low-bandwidth read notice (V2-FE-129) */}
+      <OfflineBanner />
       {/* banner warns about Sybil/low-trust accounts */}
       <TrustWarningBanner />
         <main 

@@ -35,6 +35,7 @@ import {
   getVerificationArtifact,
   verificationSubmissionAbi,
 } from '@/config/protocol/verification-artifact';
+import { evaluateWriteTarget } from '@/lib/contracts/write-gate';
 import {
   EffectiveOnChainPosition,
   VerificationPosition,
@@ -426,6 +427,15 @@ export function useVerificationSubmission(
         );
       }
 
+      const writeTarget = evaluateWriteTarget({
+        activeChainId: activeChainId,
+        contractAddress: contractAddress ?? undefined,
+        requireReleaseAddressMatch: false,
+      });
+      if (!writeTarget.ok) {
+        return fail('PROTOCOL_DISABLED', writeTarget.errors.join('; '));
+      }
+
       if (claimIdBigInt === null) {
         return fail(
           'INVALID_CLAIM',
@@ -605,9 +615,11 @@ export function useVerificationSubmission(
         const resolvedPhase: VerificationSubmissionPhase =
           result.status === 'stale'
             ? 'stale'
-            : result.status === 'mismatch'
-              ? 'mismatch'
-              : 'confirmed';
+            : result.status === 'degraded'
+              ? 'degraded'
+              : result.status === 'mismatch'
+                ? 'mismatch'
+                : 'confirmed';
         setPhase(resolvedPhase);
         return { transactionHash: txHash, phase: resolvedPhase, reconciliation: result };
       } catch (err) {

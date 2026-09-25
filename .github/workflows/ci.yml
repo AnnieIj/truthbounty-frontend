@@ -17,6 +17,19 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  artifacts:
+    name: Artifacts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      - name: Verify contract release artifacts (drift fails here)
+        run: node scripts/verify-artifacts.mjs
+
   lint:
     name: Lint
     runs-on: ubuntu-latest
@@ -102,6 +115,11 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
+    env:
+      # Public placeholder so the production build/prerender can run without
+      # third-party WalletConnect credentials in CI. Real deployments must set
+      # a genuine NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID.
+      NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: ci-placeholder-project-id
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -139,6 +157,10 @@ jobs:
           fi
       - name: Verify contract release artifacts
         run: npm run verify-artifacts
+      - name: Verify staging smoke gate
+        run: npm run verify:staging-smoke
+      - name: Verify production smoke runner
+        run: npm run test:production-smoke:unit
       - name: Type check
         run: npm run type-check
       - name: Build app
@@ -165,6 +187,10 @@ jobs:
   e2e:
     name: E2E
     runs-on: ubuntu-latest
+    env:
+      # Public placeholder (see the Build job) so Playwright can build and boot
+      # the production app without WalletConnect credentials.
+      NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: ci-placeholder-project-id
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -206,3 +232,10 @@ jobs:
         run: npx playwright install --with-deps
       - name: Run Playwright E2E tests
         run: npm run test:e2e
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 30

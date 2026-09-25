@@ -6,6 +6,7 @@ import { formatUnits } from "viem";
 import { REWARD_ALLOCATION_EXPLANATIONS } from "@/app/types/rewards";
 import { useRewardClaim } from "@/hooks/useRewardClaim";
 import { useRewardEntitlements } from "@/hooks/useRewardEntitlements";
+import { useWriteReadiness } from "@/hooks/useWriteReadiness";
 import { getTransactionExplorerUrl } from "@/lib/explorer";
 
 export default function RewardsPage() {
@@ -29,6 +30,10 @@ export default function RewardsPage() {
   } = useRewardClaim({
     onConfirmed: () => void refetch(),
   });
+
+  // V2-FE-100: fail-closed readiness gate for claim writes. The claim target
+  // is the canonical release contract, resolved by the gate itself.
+  const readiness = useWriteReadiness({ requireCanonicalMatch: true });
 
   const claimable = useMemo(
     () => entitlements.filter((entitlement) => entitlement.claimable),
@@ -78,11 +83,35 @@ export default function RewardsPage() {
   return (
     <section aria-label="Claimable rewards">
       <h1>Rewards Dashboard</h1>
+
+      {!readiness.isReady && readiness.message && (
+        <p data-testid="write-readiness-reason" role="status">
+          {readiness.message}
+        </p>
+      )}
+
       <button
         type="button"
         onClick={claimAll}
-        disabled={claimable.length === 0 || isClaimInProgress || status === "confirmed"}
+        disabled={
+          claimable.length === 0 ||
+          isClaimInProgress ||
+          status === "confirmed" ||
+          !readiness.isReady
+        }
         aria-busy={isClaimInProgress}
+        aria-label={
+          isClaimInProgress
+            ? "Claiming rewards"
+            : !readiness.isReady
+              ? readiness.message || "Claim unavailable"
+              : "Claim Rewards"
+        }
+        aria-describedby={
+          !readiness.isReady && readiness.message
+            ? "write-readiness-reason"
+            : undefined
+        }
       >
         {isClaimInProgress ? "Claiming..." : "Claim Rewards"}
       </button>

@@ -4,7 +4,8 @@
  * The previous version fetched `/api/rewards` directly and used
  * `Number(amount)` float sums — both removed in V2-FE-060. This file tests
  * the same user-visible behaviours (button enabled/disabled, rewards list)
- * but via the canonical V2 hooks (useRewardEntitlements + useRewardClaim).
+ * but via the canonical V2 hooks (useRewardEntitlements + useRewardClaim),
+ * plus the V2-FE-100 fail-closed write-readiness gate.
  */
 
 import React from 'react';
@@ -67,6 +68,17 @@ jest.mock('@/hooks/useRewardClaim', () => ({
   useRewardClaim: () => claimState,
 }));
 
+// V2-FE-100 write-readiness gate — ready by default; individual tests flip
+// isReady/message to assert fail-closed behaviour.
+let readinessState = {
+  isReady: true,
+  message: null as string | null,
+};
+
+jest.mock('@/hooks/useWriteReadiness', () => ({
+  useWriteReadiness: () => readinessState,
+}));
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -102,6 +114,10 @@ function resetStates() {
     failure: null,
     isWritePending: false,
     reset: jest.fn(),
+  };
+  readinessState = {
+    isReady: true,
+    message: null,
   };
 }
 
@@ -205,5 +221,21 @@ describe('RewardsPage — V2 data binding', () => {
     expect(
       screen.getByRole('button', { name: /dismiss/i }),
     ).toBeInTheDocument();
+  });
+
+  it('disables claim and surfaces the reason when the write readiness gate fails', async () => {
+    const entitlement = makeEntitlement();
+    entitlementsState.entitlements = [entitlement];
+    readinessState = {
+      isReady: false,
+      message: 'Wrong network. Switch to the protocol chain to claim.',
+    };
+
+    await renderPage();
+    const btn = screen.getByRole('button', { name: /wrong network/i });
+    expect(btn).toBeDisabled();
+    expect(screen.getByTestId('write-readiness-reason')).toHaveTextContent(
+      /wrong network/i,
+    );
   });
 });
