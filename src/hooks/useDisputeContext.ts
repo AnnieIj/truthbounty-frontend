@@ -14,6 +14,7 @@ import {
   DisputeWalletPosition,
   DisputeContext,
 } from '@/app/types/dispute';
+import { getReleaseChainId } from '@/lib/contracts/registry';
 
 interface UseDisputeContextConfig {
   claimId: string;
@@ -44,7 +45,7 @@ export function useDisputeContext(
   const {
     claimId,
     contractAddress,
-    expectedChainId = OPTIMISM_MAINNET_CHAIN_ID,
+    expectedChainId = getReleaseChainId(),
     pollInterval = DEFAULT_POLL_INTERVAL,
     enabled = true,
   } = config;

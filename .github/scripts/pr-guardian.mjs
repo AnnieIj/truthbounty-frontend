@@ -1,118 +1,180 @@
-import { appendFile, mkdir, writeFile } from "node:fs/promises";
+import { readFileSync } from "node:fs";
+import { parseArgs } from "node:util";
 
-const token = process.env.GITHUB_TOKEN;
-const repository = process.env.GITHUB_REPOSITORY;
-const prNumber = Number(process.env.PR_NUMBER);
-const expectedPrefix = process.env.ISSUE_PREFIX;
-const reportDir = process.env.REPORT_DIR || "reports";
-
-if (!token || !repository || !prNumber || !expectedPrefix) {
-  throw new Error("GITHUB_TOKEN, GITHUB_REPOSITORY, PR_NUMBER, and ISSUE_PREFIX are required");
-}
-
-const [owner, repo] = repository.split("/");
-const api = async (path) => {
-  const response = await fetch(`https://api.github.com${path}`, {
-    headers: {
-      Accept: "application/vnd.github+json",
-      Authorization: `Bearer ${token}`,
-      "X-GitHub-Api-Version": "2022-11-28",
-      "User-Agent": "truthbounty-pr-guardian"
-    }
-  });
-  if (!response.ok) {
-    throw new Error(`GitHub API ${response.status} for ${path}: ${await response.text()}`);
-  }
-  return response.json();
-};
-
-const pr = await api(`/repos/${owner}/${repo}/pulls/${prNumber}`);
-const closingPattern = /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s*:?[ \t]*(?:https:\/\/github\.com\/[^/]+\/[^/]+\/issues\/)?#?(\d+)\b/gi;
-const linkedNumbers = [...new Set([...String(pr.body || "").matchAll(closingPattern)].map((match) => Number(match[1])))];
-
-const findings = [];
-const facts = {
-  repository,
-  pullRequest: prNumber,
-  headSha: pr.head.sha,
-  author: pr.user.login,
-  draft: pr.draft,
-  linkedIssues: linkedNumbers
-};
-
-if (pr.draft) findings.push({ severity: "notice", code: "draft", message: "Draft PRs are not merge candidates." });
-if (linkedNumbers.length !== 1) {
-  findings.push({
-    severity: "warning",
-    code: "one-task-one-pr",
-    message: `Expected exactly one closing issue reference; found ${linkedNumbers.length}.`
-  });
-}
-
-if (linkedNumbers.length === 1) {
-  const issue = await api(`/repos/${owner}/${repo}/issues/${linkedNumbers[0]}`);
-  const labels = (issue.labels || []).map((label) => typeof label === "string" ? label : label.name);
-  const assignees = (issue.assignees || []).map((assignee) => assignee.login);
-  const taskMatch = String(issue.title || "").match(new RegExp(`^\\s*(${expectedPrefix}-\\d{3})\\b`, "i"));
-  Object.assign(facts, {
-    issueNumber: issue.number,
-    issueState: issue.state,
-    taskId: taskMatch?.[1]?.toUpperCase() || null,
-    labels,
-    assignees
-  });
-
-  if (!taskMatch) findings.push({ severity: "warning", code: "task-id", message: `Linked issue title must begin with ${expectedPrefix}-NNN.` });
-  if (issue.state !== "open") findings.push({ severity: "warning", code: "issue-state", message: "Linked issue is not open." });
-  if (!labels.includes("Stellar Wave")) findings.push({ severity: "warning", code: "activation", message: 'Linked issue lacks the exact "Stellar Wave" activation label.' });
-  if (labels.includes("wave-candidate") && labels.includes("Stellar Wave")) findings.push({ severity: "warning", code: "label-state", message: "Issue cannot be both wave-candidate and Stellar Wave." });
-  if (!assignees.includes(pr.user.login)) findings.push({ severity: "warning", code: "assignment", message: `PR author @${pr.user.login} is not assigned to the linked issue; maintainer approval must be recorded.` });
-}
-
-const sensitiveFiles = [
-  /^\.github\/workflows\//,
-  /(?:auth|siwe|wallet|signature|settlement|reward|treasury|governance|migration|indexer|reorg|deploy)/i,
-  /\.sol$/i
+const SENSITIVE_GLOBS = [
+  "src/lib/contracts/**",
+  "src/lib/security/**",
+  "src/lib/wallet-boundary/**",
+  "src/hooks/*Transaction*.ts",
+  "src/hooks/useWallet*.ts",
+  "src/components/transactions/**",
+  "src/components/protocol/**",
+  "release/**",
 ];
-const files = [];
-for (let page = 1; ; page += 1) {
-  const batch = await api(`/repos/${owner}/${repo}/pulls/${prNumber}/files?per_page=100&page=${page}`);
-  files.push(...batch);
-  if (batch.length < 100) break;
+
+const TEAM_SLUG = "truthbounty/v2-maintainers";
+const TEAM_LOGIN = `@${TEAM_SLUG}`;
+
+export function globToRegex(glob) {
+  const parts = glob.split("/");
+  const regexParts = [];
+
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i];
+    if (part === "**") {
+      if (i === parts.length - 1) {
+        regexParts.push(".*");
+      } else {
+        regexParts.push("(?:.+/)*?");
+      }
+    } else {
+      const escaped = part
+        .replace(/[.+^${}()|[\]\\]/g, "\\$&")
+        .replace(/\*/g, "[^/]*");
+      regexParts.push(escaped);
+    }
+  }
+
+  return new RegExp("^" + regexParts.join("/") + "$");
 }
-facts.changedFiles = files.map((file) => file.filename);
-facts.securitySensitive = files.some((file) => sensitiveFiles.some((pattern) => pattern.test(file.filename)));
-if (facts.securitySensitive) {
-  findings.push({ severity: "notice", code: "human-review", message: "Security-sensitive paths changed; exact-head human maintainer approval is mandatory." });
+
+export function matchesAnySensitiveGlob(filePath) {
+  for (const glob of SENSITIVE_GLOBS) {
+    const re = globToRegex(glob);
+    if (re.test(filePath)) {
+      return true;
+    }
+  }
+  return false;
 }
 
-const report = {
-  schemaVersion: 1,
-  mode: "report-only",
-  generatedAt: new Date().toISOString(),
-  facts,
-  findings
-};
+export function getAllowlistedLogins() {
+  const raw = process.env.MAINTAINER_ALLOWLIST_LOGINS || "";
+  return new Set(
+    raw
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean)
+  );
+}
 
-await mkdir(reportDir, { recursive: true });
-await writeFile(`${reportDir}/pr-guardian-${prNumber}.json`, JSON.stringify(report, null, 2) + "\n");
+export function checkMaintainerApproval({ changedFiles, reviews, reviewerTeam }) {
+  const teamLabel = reviewerTeam || TEAM_SLUG;
+  const teamLoginMatch = reviewerTeam ? `@${reviewerTeam}` : TEAM_LOGIN;
 
-const rows = findings.length
-  ? findings.map((finding) => `| ${finding.severity} | ${finding.code} | ${finding.message.replaceAll("|", "\\|")} |`).join("\n")
-  : "| notice | clear | No policy findings at this stage. |";
-const summary = `# TruthBounty PR Guardian (report only)
+  const sensitiveFiles = changedFiles.filter((f) => matchesAnySensitiveGlob(f));
 
-- Repository: \`${repository}\`
-- Pull request: #${prNumber}
-- Head SHA: \`${pr.head.sha}\`
-- Linked task: \`${facts.taskId || "unresolved"}\`
-- Security-sensitive: \`${facts.securitySensitive}\`
+  if (sensitiveFiles.length === 0) {
+    return { ok: true };
+  }
 
-| Severity | Rule | Finding |
-|---|---|---|
-${rows}
+  const approvers = reviews
+    .filter((r) => r.state === "APPROVED")
+    .map((r) => r.user?.login)
+    .filter(Boolean);
 
-This job does not approve, comment, label, assign, close, or merge.
-`;
-if (process.env.GITHUB_STEP_SUMMARY) await appendFile(process.env.GITHUB_STEP_SUMMARY, summary);
-console.log(JSON.stringify(report, null, 2));
+  const allowlist = getAllowlistedLogins();
+
+  const hasQualifiedApproval = approvers.some((login) => {
+    if (login === teamLoginMatch) return true;
+    if (login === TEAM_LOGIN) return true;
+    if (allowlist.has(login)) return true;
+    return false;
+  });
+
+  if (hasQualifiedApproval) {
+    return { ok: true };
+  }
+
+  const fileList = sensitiveFiles.map((f) => `  - ${f}`).join("\n");
+  const reason =
+    `Sensitive paths require maintainer approval from @${teamLabel} (or MAINTAINER_ALLOWLIST_LOGINS).\n` +
+    `No qualifying APPROVED review found for the following files:\n${fileList}`;
+
+  return { ok: false, reason };
+}
+
+function parseArgsv() {
+  try {
+    const { values } = parseArgs({
+      options: {
+        files: { type: "string" },
+        reviewsJson: { type: "string" },
+        reviewerTeam: { type: "string" },
+      },
+      strict: false,
+    });
+    return values;
+  } catch {
+    return {};
+  }
+}
+
+function loadFromGithubEvent() {
+  const eventPath = process.env.GITHUB_EVENT_PATH;
+  if (!eventPath) return null;
+
+  try {
+    const raw = readFileSync(eventPath, "utf-8");
+    const event = JSON.parse(raw);
+    const pr = event.pull_request;
+    if (!pr) return null;
+
+    const changedFiles = (pr.files || []).map((f) => f.filename).filter(Boolean);
+    const reviews = (pr.reviews || []).map((r) => ({
+      user: r.user ? { login: r.user.login } : undefined,
+      state: r.state,
+    }));
+
+    return { changedFiles, reviews };
+  } catch {
+    return null;
+  }
+}
+
+function main() {
+  const args = parseArgsv();
+  const fromEvent = loadFromGithubEvent();
+
+  let changedFiles;
+  let reviews;
+
+  if (args.files) {
+    changedFiles = args.files.split(",").map((s) => s.trim()).filter(Boolean);
+  } else if (fromEvent) {
+    changedFiles = fromEvent.changedFiles;
+  } else {
+    changedFiles = [];
+  }
+
+  if (args.reviewsJson) {
+    try {
+      const raw = readFileSync(args.reviewsJson, "utf-8");
+      reviews = JSON.parse(raw);
+    } catch (e) {
+      console.error(`Failed to read reviewsJson file: ${e.message}`);
+      process.exit(1);
+    }
+  } else if (fromEvent) {
+    reviews = fromEvent.reviews;
+  } else {
+    reviews = [];
+  }
+
+  const result = checkMaintainerApproval({
+    changedFiles,
+    reviews,
+    reviewerTeam: args.reviewerTeam,
+  });
+
+  if (result.ok) {
+    process.exit(0);
+  } else {
+    console.error(result.reason || "Maintainer approval required.");
+    process.exit(1);
+  }
+}
+
+if (process.argv[1] && import.meta.url.endsWith(process.argv[1].replace(/\\/g, "/"))) {
+  main();
+}

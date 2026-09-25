@@ -1,3 +1,18 @@
+# This file is enforced by the pr-guardian workflow (see .github/scripts/pr-guardian.mjs)
+# which blocks PRs touching sensitive paths unless a V2 maintainer has approved.
+# In org repos, review approvals from @truthbounty/v2-maintainers team members count.
+# In test/CI contexts, the MAINTAINER_ALLOWLIST_LOGINS env var provides a fallback allowlist.
+
+# Sensitive security / wallet / contract / transaction paths — require V2 maintainer approval
+src/lib/contracts/**                        @truthbounty/v2-maintainers
+src/lib/security/**                         @truthbounty/v2-maintainers
+src/lib/wallet-boundary/**                  @truthbounty/v2-maintainers
+src/hooks/*Transaction*.ts                  @truthbounty/v2-maintainers
+src/hooks/useWallet*.ts                     @truthbounty/v2-maintainers
+src/components/transactions/**              @truthbounty/v2-maintainers
+src/components/protocol/**                  @truthbounty/v2-maintainers
+release/**                                  @truthbounty/v2-maintainers
+
 # Default ownership for production and governance changes.
 * @dDevAhmed
 /.github/ @dDevAhmed

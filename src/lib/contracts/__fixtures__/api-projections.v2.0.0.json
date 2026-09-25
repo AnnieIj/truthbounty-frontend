@@ -1,0 +1,60 @@
+{
+  "version": "2.0.0",
+  "claims": [
+    {
+      "id": "claim-100",
+      "title": "Optimism fee market observation",
+      "description": "Canonical projection fixture \u2014 not fabricated protocol state.",
+      "claimantAddress": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+      "status": "OPEN",
+      "bountyAmount": 1.5,
+      "totalStaked": 0.25,
+      "evidence": [],
+      "createdAt": "2026-09-01T00:00:00.000Z",
+      "updatedAt": "2026-09-01T00:00:00.000Z"
+    },
+    {
+      "id": "claim-101",
+      "title": "Verified settlement projection",
+      "description": "Settled claim projection for success-state UI.",
+      "claimantAddress": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+      "status": "VERIFIED",
+      "bountyAmount": 2.0,
+      "totalStaked": 2.0,
+      "evidence": [
+        {
+          "id": "ev-1",
+          "type": "link",
+          "value": "https://optimistic.etherscan.io/tx/0xabc",
+          "createdAt": "2026-09-02T00:00:00.000Z"
+        }
+      ],
+      "createdAt": "2026-09-01T12:00:00.000Z",
+      "updatedAt": "2026-09-02T00:00:00.000Z"
+    }
+  ],
+  "errors": [
+    {
+      "code": "UNSUPPORTED_CHAIN",
+      "message": "Chain is not Optimism / OP Sepolia."
+    },
+    {
+      "code": "USER_REJECTED",
+      "message": "Wallet rejected the signature request."
+    },
+    {
+      "code": "SIMULATION_REVERTED",
+      "message": "Simulation reverted; no transaction submitted."
+    }
+  ],
+  "settlements": [
+    {
+      "claimId": "claim-100",
+      "state": "PENDING_SETTLEMENT"
+    },
+    {
+      "claimId": "claim-101",
+      "state": "FINALIZED"
+    }
+  ]
+}

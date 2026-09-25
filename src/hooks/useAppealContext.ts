@@ -15,12 +15,13 @@ import {
   AppealParticipationContext,
   AppealState,
 } from '@/app/types/appeal';
+import { getReleaseChainId } from '@/lib/contracts/registry';
 
 interface UseAppealContextConfig {
   appealId: string;
   claimId: string;
   contractAddress: string;
-  expectedChainId?: number; // Optimism mainnet = 10, Sepolia testnet = 11155420
+  expectedChainId?: number;
   pollInterval?: number; // ms
 }
 
@@ -46,7 +47,7 @@ export function useAppealContext(
     appealId,
     claimId,
     contractAddress,
-    expectedChainId = OPTIMISM_MAINNET_CHAIN_ID,
+    expectedChainId = getReleaseChainId(),
     pollInterval = DEFAULT_POLL_INTERVAL,
   } = config;
 

@@ -21,6 +21,47 @@ import { setupMockServer } from '../mocks/server'
 
 const server = setupMockServer()
 
+// V2-FE-100: claim writes must target the release chain (11155420), not mainnet 10.
+jest.mock('wagmi', () => ({
+  useAccount: () => ({
+    address: '0x742d35Cc6634C0532925a3b844Bc9e7595f0eB1E',
+    isConnected: true,
+    isConnecting: false,
+    isDisconnected: false,
+    chainId: 11155420,
+    status: 'connected',
+  }),
+  useDisconnect: () => ({
+    disconnect: jest.fn(),
+    disconnectAsync: jest.fn().mockResolvedValue(undefined),
+  }),
+  useChainId: () => 11155420,
+  useSwitchChain: () => ({
+    switchChain: jest.fn(),
+  }),
+  usePublicClient: () => ({}),
+  useWalletClient: () => ({}),
+  useBlockNumber: jest.fn(() => ({ data: 100n })),
+  useReadContract: jest.fn(() => ({ data: undefined, isLoading: false })),
+  useWriteContract: jest.fn(() => ({
+    writeContractAsync: jest.fn().mockResolvedValue('0x' + '1'.repeat(64)),
+  })),
+  useWaitForTransactionReceipt: jest.fn(() => ({ data: null, isLoading: false })),
+  useBalance: jest.fn(() => ({
+    data: { value: 1000000000000000000n, formatted: '1.0' },
+    isLoading: false,
+  })),
+  useConnectors: () => [{ id: 'injected', name: 'Injected', type: 'injected' }],
+  useConnect: () => ({
+    connect: jest.fn(),
+    connectAsync: jest.fn().mockResolvedValue(undefined),
+  }),
+  WagmiProvider: ({ children }: { children: React.ReactNode }) => children,
+  createStorage: jest.fn(() => ({})),
+  cookieStorage: {},
+  http: jest.fn(),
+}))
+
 let mockTrustState = {
   isVerified: true,
   reputation: 50,
