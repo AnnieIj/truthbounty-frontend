@@ -4,7 +4,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import { ThemeInitScript } from "@/lib/theme-init";
-import { CSP_NONCE_HEADER } from "@/lib/security/csp-allowlist";
+import { NONCE_HEADER } from "@/lib/security/headers";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -26,8 +26,9 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const hdrs = await headers();
-  const nonce = hdrs.get(CSP_NONCE_HEADER) ?? undefined;
+  const headerStore = await headers();
+  const nonce = headerStore.get(NONCE_HEADER) ?? undefined;
+
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
