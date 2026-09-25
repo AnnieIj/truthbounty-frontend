@@ -10,8 +10,7 @@ import {
   getAddress,
   parseAbi,
 } from 'viem';
-import { assertNoFabricatedData } from '@/lib/transaction-state';
-import type { TransactionConfirmed } from '@/app/types/transaction';
+import { evaluateWriteTarget } from '@/lib/contracts/write-gate';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -25,10 +24,10 @@ export const SUPPORTED_ARTIFACT_VERSION = '0.1.0';
 export const SUPORTED_ARTIFACT_VERSION = SUPPORTED_ARTIFACT_VERSION;
 
 /**
- * Default chain id for Optimism mainnet. Consumers should pass the correct
- * expected chain when not defaulting to mainnet.
+ * Default chain id for the reviewed release (Optimism Sepolia in the pinned
+ * manifest). Consumers should pass the correct expected chain when not defaulting.
  */
-export const DEFAULT_EXPECTED_CHAIN_ID = 10;
+export const DEFAULT_EXPECTED_CHAIN_ID = 11155420;
 
 /**
  * Max byte length for content digest (32 bytes).
@@ -262,6 +261,15 @@ function validateParams(
       INVALID_ADDRESS,
       `Invalid claim contract address: ${params.claimContractAddress}`
     );
+  }
+
+  const writeTarget = evaluateWriteTarget({
+    activeChainId: expectedChainId,
+    contractAddress: params.claimContractAddress,
+  });
+  if (!writeTarget.ok) {
+    const code = writeTarget.code === 'STALE_ARTIFACT' ? INVALID_ARTIFACT_VERSION : INVALID_ADDRESS;
+    throw new ClaimCreationError(code, writeTarget.errors.join('; '));
   }
 
   validateApproval(params.approval);

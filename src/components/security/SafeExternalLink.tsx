@@ -4,7 +4,7 @@ import React from 'react';
 import { safeUrl, SAFE_EXTERNAL_REL, isHardenedRel } from '@/lib/security/evidence-sanitizer';
 
 export interface SafeExternalLinkProps
-  extends Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, 'href' | 'target' | 'rel'> {
+  extends Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, 'href' | 'target'> {
   /** Untrusted URL from API/evidence/claim content — validated before render. */
   href: string;
   /** Accessible name. Falls back to the sanitized URL text when omitted. */

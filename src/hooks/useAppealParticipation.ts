@@ -22,7 +22,7 @@
 
 import { useCallback, useMemo, useState } from 'react';
 import { encodeFunctionData, maxUint256 } from 'viem';
-import type { Abi, Address, Hash } from 'viem';
+import type { Abi, Hash } from 'viem';
 import { useAccount, useChainId, usePublicClient, useWriteContract } from 'wagmi';
 import {
   AppealDecision,
@@ -35,6 +35,7 @@ import {
   AppealSimulationResult,
   AppealValidation,
 } from '@/app/types/appeal';
+import { evaluateWriteTarget } from '@/lib/contracts/write-gate';
 import { erc20Abi } from '@/config/protocol/verification-artifact';
 import {
   getContractAbi,
@@ -42,6 +43,7 @@ import {
   getProtocolVersion,
   getReleaseChainId,
 } from '@/lib/contracts/registry';
+import { evaluateWriteTarget } from '@/lib/contracts/write-gate';
 import { isValidContractAddress } from '@/lib/contracts/address-guard';
 import { isValidChain } from '@/lib/transaction-machine/transaction-machine.types';
 
@@ -310,6 +312,17 @@ export function useAppealParticipation(
         );
       }
 
+      // Fail closed through the single validated release manifest before any signing path.
+      const writeTarget = evaluateWriteTarget({
+        activeChainId: currentChainId,
+        contractAddress,
+        expectedProtocolVersion: artifactVersion,
+      });
+      if (!writeTarget.ok) {
+        errors.push(...writeTarget.errors);
+      }
+
+      // Check contract address valid
       const contractAddressValid = isValidContractAddress(contractAddress);
       if (!contractAddressValid) {
         errors.push('Invalid contract address format');
@@ -650,6 +663,20 @@ export function useAppealParticipation(
           );
         }
 
+        // V2-FE-100 readiness gate — fail closed before any submission attempt
+        const gate = evaluateWriteTarget({
+          account: userAddress ?? null,
+          chainId: currentChainId,
+          expectedChainId,
+          targetAddress: contractAddress,
+        });
+        if (!gate.ready) {
+          return fail(
+            'UNEXPECTED_ERROR',
+            gate.reason ?? 'Wallet is not ready for appeal participation.'
+          );
+        }
+
         // ---- Allowance + approval (only when a stake token is pinned) ----
         setAllowance(null);
         if (stakeTokenAddress) {
@@ -668,7 +695,6 @@ export function useAppealParticipation(
               ? value
               : BigInt(value as number | string);
           };
-
 
           let currentAllowance: bigint;
           try {

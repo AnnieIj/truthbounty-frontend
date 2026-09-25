@@ -13,11 +13,12 @@ import {
   StateValidation,
   SettlementContext,
 } from '@/app/types/settlement';
+import { getReleaseChainId } from '@/lib/contracts/registry';
 
 interface UseSettlementDetectionConfig {
   claimId: string;
   contractAddress: string;
-  expectedChainId?: number; // Optimism mainnet = 10, Sepolia testnet = 11155420
+  expectedChainId?: number;
   pollInterval?: number; // ms
 }
 
@@ -40,7 +41,7 @@ const DEFAULT_POLL_INTERVAL = 5000; // 5 seconds
 export function useSettlementDetection(
   config: UseSettlementDetectionConfig
 ): SettlementDetectionResult {
-  const { claimId, contractAddress, expectedChainId = OPTIMISM_MAINNET_CHAIN_ID, pollInterval = DEFAULT_POLL_INTERVAL } = config;
+  const { claimId, contractAddress, expectedChainId = getReleaseChainId(), pollInterval = DEFAULT_POLL_INTERVAL } = config;
   
   const { address: userAddress, isConnected } = useAccount();
   const currentChainId = useChainId();

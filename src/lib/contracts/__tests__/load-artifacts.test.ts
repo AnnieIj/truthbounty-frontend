@@ -36,5 +36,12 @@ describe('contract release artifacts', () => {
     expect(diagnostics.protocolVersion).toBe('2.0.0');
     expect(diagnostics.chainId).toBe(11155420);
     expect(diagnostics.contracts.TruthBountyWeighted).toBeTruthy();
+    expect(diagnostics.gitCommit).toMatch(/^[0-9a-f]{7,40}$/i);
+    expect(diagnostics.gitCommit).not.toMatch(/^0+$/);
+    expect(diagnostics.abiVersion).toBe('2.0.0');
+    expect(diagnostics.abiHash).toMatch(/^[0-9a-f]{64}$/);
+    expect(diagnostics.environment).toMatch(/^(production|development)$/);
+    // Provenance only — never leak env secrets through diagnostics.
+    expect(JSON.stringify(diagnostics)).not.toMatch(/api[_-]?key|secret|private[_-]?key|password/i);
   });
 });

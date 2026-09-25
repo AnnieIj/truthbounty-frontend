@@ -22,10 +22,10 @@ export const DisputeVoting = ({ disputeId, currentStaked, onVote }: DisputeVotin
     <div className="rounded-xl border border-red-900/50 bg-red-950/10 p-4 sm:p-5 mt-4 sm:mt-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 sm:mb-4 gap-2 sm:gap-0">
         <h3 className="text-white font-semibold flex items-center gap-2 text-sm sm:text-base">
-          {/* V2-FE-071 — static, motion-free attention cue. The pulsing
-              animate-ping span was removed: flashing indicators are killed
-              under reduced motion anyway, so comprehension must not rely on
-              them. The "Active" text + red dot already carry the meaning. */}
+          {/* V2-FE-071 — static, motion-free attention cue. The flashing
+              pulsing span was removed: such indicators are killed under
+              reduced motion anyway, so comprehension must not rely on them.
+              The "Active" text + red dot already carry the meaning. */}
           <span
             aria-hidden="true"
             className="relative inline-flex h-3 w-3 rounded-full bg-red-500 ring-2 ring-red-400/40"
