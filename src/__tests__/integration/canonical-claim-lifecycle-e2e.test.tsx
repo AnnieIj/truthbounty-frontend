@@ -93,6 +93,10 @@ jest.mock('@/app/lib/api', () => ({
   getClaimById: jest.fn(),
 }));
 
+jest.mock('@/app/api/rewards.api', () => ({
+  fetchRewardEntitlements: jest.fn().mockResolvedValue([]),
+}));
+
 jest.mock('@/lib/contracts/registry', () => {
   const address = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8';
   const release = {
@@ -632,12 +636,20 @@ describe('V2-FE-044 — Canonical claim lifecycle (happy path)', () => {
   // Stage 8 — Rewards
   // -------------------------------------------------------------------------
   describe('Stage: rewards', () => {
-    it('claimAll surfaces NotImplemented error and never fabricates a tx hash', async () => {
-      const { result } = renderHook(() => useRewards());
+    it('claimAll is a no-op with no claimable entitlements and never fabricates a tx hash', async () => {
+      const queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+      });
+      const wrapper = ({ children }: { children: React.ReactNode }) => (
+        <QueryClientProvider client={queryClient}>
+          {children}
+        </QueryClientProvider>
+      );
+      const { result } = renderHook(() => useRewards(), { wrapper });
 
       // Isolation: rewards must not be seeded from production mock fixtures.
       expect(result.current.pendingRewards).toHaveLength(0);
-      expect(result.current.totalClaimable).toBe(0);
+      expect(result.current.totalClaimableDisplay).toBeNull();
 
       await act(async () => {
         await result.current.claimAll();
