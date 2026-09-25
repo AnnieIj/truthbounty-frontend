@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { ClaimSubmissionForm, ClaimFormData } from "@/components/features/claim-submission";
 import TrustIndicator from "@/components/ui/TrustIndicator";
 import { WebSocketIndicator } from "@/components/ui/WebSocketStatus";
+import { PerformanceBudgetIndicator } from "@/components/features/PerformanceBudgetIndicator";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { WalletConnection } from "../WalletConnection";
 import { FeatureFlagGate } from "@/components/providers";
@@ -48,6 +49,10 @@ const Topbar = () => {
           {/* WebSocket connection status */}
           <FeatureFlagGate flag="REALTIME_UPDATES">
             <WebSocketIndicator />
+          </FeatureFlagGate>
+          {/* Frontend performance budget status */}
+          <FeatureFlagGate flag="PERFORMANCE_BUDGETS">
+            <PerformanceBudgetIndicator />
           </FeatureFlagGate>
           {/* Theme toggle */}
           <ThemeToggle />

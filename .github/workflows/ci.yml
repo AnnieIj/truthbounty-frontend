@@ -157,6 +157,8 @@ jobs:
           fi
       - name: Verify contract release artifacts
         run: npm run verify-artifacts
+      - name: Verify staging smoke gate
+        run: npm run verify:staging-smoke
       - name: Verify production smoke runner
         run: npm run test:production-smoke:unit
       - name: Type check
