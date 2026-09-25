@@ -1,6 +1,8 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
+
 import MainLayout from '@/components/layout/MainLayout';
 import SafeTreasuryWithdrawalPanel from '@/components/features/treasury/SafeTreasuryWithdrawalPanel';
 
@@ -14,6 +16,12 @@ export default function TreasuryPage() {
             Safe withdrawal UX for the canonical Optimism treasury admin. Outcomes come only from
             chain reads and real receipts.
           </p>
+          <Link
+            href="/treasury/stake"
+            className="inline-block mt-3 text-sm text-[#5b5bf6] underline hover:text-white"
+          >
+            Stake &amp; recipient withdrawal
+          </Link>
         </div>
         <SafeTreasuryWithdrawalPanel />
       </div>
