@@ -2,9 +2,10 @@ import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@/lib/utils"
+import { useReducedMotion } from "@/components/hooks/useReducedMotion"
 
 const skeletonVariants = cva(
-  "animate-shimmer bg-gradient-to-r from-[#232329] via-[#2a2a32] to-[#232329] bg-[length:200%_100%] rounded-md",
+  "bg-gradient-to-r from-[#232329] via-[#2a2a32] to-[#232329] bg-[length:200%_100%] rounded-md",
   {
     variants: {
       variant: {
@@ -42,9 +43,18 @@ function Skeleton({
   style,
   ...props
 }: SkeletonProps) {
+  const reducedMotion = useReducedMotion()
+
   return (
     <div
-      className={cn(skeletonVariants({ variant, size }), className)}
+      className={cn(
+        skeletonVariants({ variant, size }),
+        // Only apply the shimmer animation when the user has not requested
+        // reduced motion. When they have, a static muted background is used.
+        reducedMotion ? "bg-[#232329]" : "animate-shimmer",
+        className
+      )}
+      aria-hidden="true"
       style={{
         width: width ? (typeof width === "number" ? `${width}px` : width) : undefined,
         height: height ? (typeof height === "number" ? `${height}px` : height) : undefined,

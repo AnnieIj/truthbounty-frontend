@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "description": "Canonical staging smoke targets for V2-FE-148. Each entry is a real production surface that must respond predictably in a staged deployment: a public page (200 HTML) or a canonical HTTP route handler. FAIL-CLOSED: a smoke check only passes when the live target returns the expected status within its latency budget using a real probe — a missing target, unexpected status, or unbounded latency is a FAIL, never a fabricated pass. Enforced at build time by `scripts/verify-staging-smoke.mjs` (canonical artifact validation + on-disk route-handler presence) and at runtime by `e2e/staging-smoke.spec.ts`. Method-gated endpoints (e.g. identity-rp is POST-only) expect 405 on the GET smoke probe: 405 proves the handler is mounted, whereas 404 would mean the route is missing.",
+  "stalenessMs": 30000,
+  "targets": [
+    { "id": "home",         "kind": "page", "name": "Home",             "path": "/",                                                    "expectedStatus": 200, "latencyMs": 3000 },
+    { "id": "identity",     "kind": "page", "name": "Identity",         "path": "/identity",                                            "expectedStatus": 200, "latencyMs": 3000 },
+    { "id": "how-it-works", "kind": "page", "name": "How It Works",     "path": "/how-it-works",                                        "expectedStatus": 200, "latencyMs": 3000 },
+    { "id": "claim-detail", "kind": "page", "name": "Claim Detail",     "path": "/claim-detail",                                        "expectedStatus": 200, "latencyMs": 3000 },
+    { "id": "claims-id",    "kind": "page", "name": "Claim Detail ID",  "path": "/claims/[id]",                                         "expectedStatus": 200, "latencyMs": 3000 },
+    { "id": "protocol",     "kind": "api",  "name": "Protocol",         "path": "/api/protocol",                                        "expectedStatus": 200, "latencyMs": 3000 },
+    { "id": "identity-rp",  "kind": "api",  "name": "Identity RP",      "path": "/api/identity/worldcoin/rp-context",                  "expectedStatus": 405, "latencyMs": 3000 }
+  ]
+}

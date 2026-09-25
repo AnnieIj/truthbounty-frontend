@@ -1,7 +1,7 @@
 {
   "protocolVersion": "2.0.0",
   "releaseId": "v2.0.0-sepolia",
-  "gitCommit": "0000000000000000000000000000000000000000",
+  "gitCommit": "5333c0acb9ccfb8a6a37ae76b3397d06781f0119",
   "compilerVersion": "foundry-0.2.0",
   "chainId": 11155420,
   "deploymentBlock": 0,

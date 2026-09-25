@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { useMemo } from 'react';
+import { useMemo } from "react";
 import {
   useAccount as useWagmiAccount,
   useChainId as useWagmiChainId,
@@ -9,14 +9,18 @@ import {
   usePublicClient as useWagmiPublicClient,
   useWalletClient as useWagmiWalletClient,
   type UseAccountReturnType,
-} from 'wagmi';
-import { isSupportedChain, type SupportedChainId } from '@/config/wagmi';
+} from "wagmi";
+import {
+  isSupportedChain,
+  type SupportedChainId,
+  supportedChains,
+} from "@/config/wagmi";
 
 /**
  * Format an EVM address to a truncated display string (e.g. 0x1234...5678)
  */
 export function formatAddress(address?: string | null): string {
-  if (!address) return '';
+  if (!address) return "";
   if (address.length <= 10) return address;
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
@@ -28,10 +32,10 @@ export interface CanonicalAccountState {
   isConnecting: boolean;
   isReconnecting: boolean;
   isDisconnected: boolean;
-  status: UseAccountReturnType['status'];
+  status: UseAccountReturnType["status"];
   chainId: number | undefined;
-  chain: UseAccountReturnType['chain'];
-  connector: UseAccountReturnType['connector'];
+  chain: UseAccountReturnType["chain"];
+  connector: UseAccountReturnType["connector"];
   isSupportedNetwork: boolean;
 }
 
@@ -83,7 +87,7 @@ export function useIsSupportedChain(): {
   return {
     isSupported: isSupportedChain(chainId),
     chainId,
-    supportedChainIds: [10, 11155420],
+    supportedChainIds: supportedChains.map((chain) => chain.id),
   };
 }
 

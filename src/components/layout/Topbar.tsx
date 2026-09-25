@@ -1,21 +1,16 @@
 "use client"
 
-import React, { useState } from "react";
-import { ClaimSubmissionForm, ClaimFormData } from "@/components/features/claim-submission";
+import React from "react";
+import { useRouter } from "next/navigation";
 import TrustIndicator from "@/components/ui/TrustIndicator";
 import { WebSocketIndicator } from "@/components/ui/WebSocketStatus";
+import { PerformanceBudgetIndicator } from "@/components/features/PerformanceBudgetIndicator";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { WalletConnection } from "../WalletConnection";
 import { FeatureFlagGate } from "@/components/providers";
 
 const Topbar = () => {
-  const [showClaimModal, setShowClaimModal] = useState(false);
-
-  const handleSubmit = (data: ClaimFormData) => {
-    // TODO: Integrate with backend or state
-    // For now, just log
-    console.log("Claim submitted:", data);
-  };
+  const router = useRouter();
 
   return (
     <>
@@ -49,6 +44,10 @@ const Topbar = () => {
           <FeatureFlagGate flag="REALTIME_UPDATES">
             <WebSocketIndicator />
           </FeatureFlagGate>
+          {/* Frontend performance budget status */}
+          <FeatureFlagGate flag="PERFORMANCE_BUDGETS">
+            <PerformanceBudgetIndicator />
+          </FeatureFlagGate>
           {/* Theme toggle */}
           <ThemeToggle />
           {/* brief trust indicator */}
@@ -63,7 +62,7 @@ const Topbar = () => {
           <FeatureFlagGate flag="CLAIM_SUBMISSION">
             <button
               className="bg-[#5b5bf6] text-white px-3 sm:px-4 py-2 rounded-md font-medium text-sm hover:bg-[#6c6cf7]"
-              onClick={() => setShowClaimModal(true)}
+              onClick={() => router.push("/claims/new")}
               aria-label="Submit a new claim"
             >
               <span className="hidden sm:inline">+ Submit Claim</span>
@@ -72,12 +71,6 @@ const Topbar = () => {
           </FeatureFlagGate>
         </div>
       </header>
-      {showClaimModal && (
-        <ClaimSubmissionForm
-          onSubmit={handleSubmit}
-          onClose={() => setShowClaimModal(false)}
-        />
-      )}
     </>
   );
 };

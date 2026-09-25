@@ -21,9 +21,20 @@ jest.mock('wagmi', () => ({
 
 // Mock contract registry
 jest.mock('@/lib/contracts/registry', () => ({
-  getContractAddress: jest.fn(() => '0x742d35Cc6634C0532925a3b844Bc9e7595f0eB1E'),
+  getContractAddress: jest.fn(() => '0x70997970C51812dc3A010C7d01b50e0d17dc79C8'),
   getContractAbi: jest.fn(() => []),
-  getProtocolVersion: jest.fn(() => 'v2.1.0'),
+  getProtocolVersion: jest.fn(() => '2.0.0'),
+  getReleaseChainId: jest.fn(() => 11155420),
+  getProtocolRelease: jest.fn(() => ({
+    manifest: {
+      chainId: 11155420,
+      protocolVersion: '2.0.0',
+      releaseId: 'v2.0.0-sepolia',
+      gitCommit: '5333c0acb9ccfb8a6a37ae76b3397d06781f0119',
+      abiVersion: '2.0.0',
+    },
+    addresses: { TruthBountyWeighted: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8' },
+  })),
 }));
 
 // Mock pending transactions
@@ -40,7 +51,7 @@ const mockUseWaitForTransactionReceipt = useWaitForTransactionReceipt as jest.Mo
 >;
 
 describe('Dispute Opening Integration', () => {
-  const contractAddress = '0x742d35Cc6634C0532925a3b844Bc9e7595f0eB1E';
+  const contractAddress = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8';
   const userAddress = '0x1234567890123456789012345678901234567890';
   const claimId = 'claim-123';
 
@@ -57,7 +68,7 @@ describe('Dispute Opening Integration', () => {
       data: BigInt(12345678),
     } as any);
 
-    mockUseChainId.mockReturnValue(10); // Optimism mainnet
+    mockUseChainId.mockReturnValue(11155420);
 
     mockUseWaitForTransactionReceipt.mockReturnValue({
       data: undefined,
@@ -73,7 +84,7 @@ describe('Dispute Opening Integration', () => {
         useDisputeContext({
           claimId,
           contractAddress,
-          expectedChainId: 10,
+          expectedChainId: 11155420,
           pollInterval: 0,
         })
       );

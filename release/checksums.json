@@ -1,10 +1,10 @@
 {
   "version": "1",
   "files": {
-    "manifest.json": "5847f8ec2a1470fe9dbf847b26fa6b32e81500771ccb1e5e8fdeff671ccce241",
+    "manifest.json": "41ce32041b99315455db316a2dce09b8d6e0406860859df162fad9b172d1ad4b",
     "addresses/11155420.json": "5ae41062976da9e4f12496353ed738ddef1df0d06925631af6b69ada69daf892",
-    "abi/TruthBountyWeighted.json": "b43bd30ed101fca34e037eea2a83462565408ed7dee9846d5118f228fa68b508",
-    "events/event-schema.json": "318880aaba1965313ac7996d88e6aefe4de0d59d8bab52031415e798b2aab3ee",
+    "abi/TruthBountyWeighted.json": "6865824782c1df1cf5f16465d9a4e028e8ac7385c6506fea957116a09a1d8385",
+    "events/event-schema.json": "8b11110eebc0263bcaf0bc7f73a6803ce1957a21fe5b938c010b78d42e633257",
     "parameters/11155420.json": "0cc201b4bb058494dc5bdf1ed3fdb4ba3a95cfdb3a4621208052197da9268d27",
     "roles/11155420.json": "7d8695c1e854a7ed10e925b2ef420385a1386ba1d8381f0a792bd58a56910a45"
   }
