@@ -35,6 +35,7 @@ import {
   getVerificationArtifact,
   verificationSubmissionAbi,
 } from '@/config/protocol/verification-artifact';
+import { evaluateWriteTarget } from '@/lib/contracts/write-gate';
 import {
   EffectiveOnChainPosition,
   VerificationPosition,
@@ -424,6 +425,15 @@ export function useVerificationSubmission(
           'PROTOCOL_DISABLED',
           `Verification protocol is not available: ${reason}.`
         );
+      }
+
+      const writeTarget = evaluateWriteTarget({
+        activeChainId: activeChainId,
+        contractAddress: contractAddress ?? undefined,
+        requireReleaseAddressMatch: false,
+      });
+      if (!writeTarget.ok) {
+        return fail('PROTOCOL_DISABLED', writeTarget.errors.join('; '));
       }
 
       if (claimIdBigInt === null) {

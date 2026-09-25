@@ -1,7 +1,7 @@
 {
   "version": "1",
   "files": {
-    "manifest.json": "5847f8ec2a1470fe9dbf847b26fa6b32e81500771ccb1e5e8fdeff671ccce241",
+    "manifest.json": "41ce32041b99315455db316a2dce09b8d6e0406860859df162fad9b172d1ad4b",
     "addresses/11155420.json": "5ae41062976da9e4f12496353ed738ddef1df0d06925631af6b69ada69daf892",
     "abi/TruthBountyWeighted.json": "6865824782c1df1cf5f16465d9a4e028e8ac7385c6506fea957116a09a1d8385",
     "events/event-schema.json": "8b11110eebc0263bcaf0bc7f73a6803ce1957a21fe5b938c010b78d42e633257",

@@ -28,6 +28,13 @@ const mockContractAddress = '0x1234567890abcdef1234567890abcdef12345678';
 const mockUserAddress = MOCK_ADDRESS_1;
 const OPTIMISM_MAINNET = 10;
 const TX_HASH = MOCK_TX_HASH_1;
+<<<<<<< fix/v2-fe-100-wallet-tx-readiness-gate
+=======
+
+const MOCK_CONTRACT = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8' as const;
+const STAKING_TOKEN = '0x3333333333333333333333333333333333333333' as const;
+
+>>>>>>> main
 const APPEAL_ID = '0x' + 'ab'.repeat(32);
 
 const TEST_ABI = [

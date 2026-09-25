@@ -24,9 +24,9 @@ jest.mock('wagmi', () => ({
   useWriteContract: jest.fn(),
 }));
 
-const mockContractAddress = '0x1234567890abcdef1234567890abcdef12345678';
+const mockContractAddress = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8';
 const mockUserAddress = MOCK_ADDRESS_1;
-const OPTIMISM_MAINNET = 10;
+const OPTIMISM_MAINNET = 11155420;
 const TX_HASH = MOCK_TX_HASH_1;
 const APPEAL_ID = '0x' + 'ab'.repeat(32);
 

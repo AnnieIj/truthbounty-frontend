@@ -43,6 +43,7 @@ import {
   getProtocolVersion,
   getReleaseChainId,
 } from '@/lib/contracts/registry';
+import { evaluateWriteTarget } from '@/lib/contracts/write-gate';
 import { isValidContractAddress } from '@/lib/contracts/address-guard';
 import { isValidChain } from '@/lib/transaction-machine/transaction-machine.types';
 
@@ -311,6 +312,17 @@ export function useAppealParticipation(
         );
       }
 
+      // Fail closed through the single validated release manifest before any signing path.
+      const writeTarget = evaluateWriteTarget({
+        activeChainId: currentChainId,
+        contractAddress,
+        expectedProtocolVersion: artifactVersion,
+      });
+      if (!writeTarget.ok) {
+        errors.push(...writeTarget.errors);
+      }
+
+      // Check contract address valid
       const contractAddressValid = isValidContractAddress(contractAddress);
       if (!contractAddressValid) {
         errors.push('Invalid contract address format');

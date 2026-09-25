@@ -10,11 +10,46 @@ import * as wagmi from 'wagmi';
 
 jest.mock('wagmi', () => ({
   useAccount: jest.fn(),
-  useChainId: jest.fn(),
+  useChainId: jest.fn(() => 11155420),
+}));
+
+jest.mock('@/lib/contracts/registry', () => ({
+  getContractAddress: jest.fn(() => '0x70997970C51812dc3A010C7d01b50e0d17dc79C8'),
+  getContractAbi: jest.fn(() => []),
+  getProtocolVersion: jest.fn(() => '2.0.0'),
+  getReleaseChainId: jest.fn(() => 11155420),
+  getProtocolRelease: jest.fn(() => ({
+    manifest: {
+      protocolVersion: '2.0.0',
+      releaseId: 'v2.0.0-sepolia',
+      gitCommit: '5333c0acb9ccfb8a6a37ae76b3397d06781f0119',
+      compilerVersion: 'foundry-0.2.0',
+      chainId: 11155420,
+      deploymentBlock: 0,
+      abiVersion: '2.0.0',
+      eventSchemaVersion: '2.0.0',
+      parameterSetVersion: '2.0.0',
+      contracts: {
+        TruthBountyWeighted: {
+          proxy: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+          implementation: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+        },
+      },
+    },
+    addresses: {
+      chainId: 11155420,
+      TruthBountyWeighted: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+    },
+    abis: { TruthBountyWeighted: [] },
+    events: { version: '2.0.0', events: [] },
+    parameters: {},
+    roles: {},
+    checksums: { version: '1', files: {} },
+  })),
 }));
 
 describe('useSettlementSubmission', () => {
-  const mockContractAddress = '0x742d35Cc6634C0532925a3b844Bc9e7595f0eB1E';
+  const mockContractAddress = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8';
   const mockUserAddress = '0x1234567890123456789012345678901234567890';
 
   beforeEach(() => {
@@ -119,7 +154,7 @@ describe('useSettlementSubmission', () => {
       });
 
       expect(simulationResult?.success).toBe(false);
-      expect(simulationResult?.error).toContain('Invalid contract address');
+      expect(simulationResult?.error).toMatch(/Invalid contract address|Invalid EVM address|Write target address/i);
     });
   });
 

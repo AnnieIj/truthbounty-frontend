@@ -19,6 +19,7 @@ import { evaluateWriteTarget } from '@/lib/contracts/write-gate';
 interface UseSettlementSubmissionConfig {
   contractAddress?: string;
   abi?: readonly unknown[];
+  expectedChainId?: number;
 }
 
 const SETTLEMENT_FUNCTIONS: Record<string, 'settleProvisional' | 'settleAppeal' | 'finalize'> = {
@@ -47,8 +48,8 @@ export function useSettlementSubmission(
   const abi = config.abi ?? getContractAbi('TruthBountyWeighted');
   const artifactVersion = getProtocolVersion();
   const { address: userAddress } = useAccount();
-  const walletChainId = useChainId();
-  const releaseChainId = getReleaseChainId();
+  const activeChainId = useChainId();
+  const expectedChainId = config.expectedChainId ?? getReleaseChainId();
 
   const [isSimulating, setIsSimulating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -100,6 +101,19 @@ export function useSettlementSubmission(
       return 'Wallet not connected';
     }
 
+    if (expectedChainId !== undefined && activeChainId !== expectedChainId) {
+      return `Wrong network. Expected chain ${expectedChainId}, got ${activeChainId}`;
+    }
+
+    const writeTarget = evaluateWriteTarget({
+      activeChainId,
+      contractAddress,
+      expectedProtocolVersion: artifactVersion,
+    });
+    if (!writeTarget.ok) {
+      return writeTarget.errors.join('; ');
+    }
+
     if (!contractAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
       return 'Invalid contract address';
     }
@@ -109,7 +123,7 @@ export function useSettlementSubmission(
     }
 
     return null;
-  }, [userAddress, contractAddress]);
+  }, [userAddress, contractAddress, activeChainId, expectedChainId, artifactVersion]);
 
   /**
    * Simulate settlement transaction
@@ -176,8 +190,8 @@ export function useSettlementSubmission(
         // V2-FE-100 readiness gate — fail closed before any submission attempt
         const gate = evaluateWriteTarget({
           account: userAddress ?? null,
-          chainId: walletChainId,
-          expectedChainId: releaseChainId,
+          chainId: activeChainId,
+          expectedChainId,
           targetAddress: contractAddress,
           requireCanonicalMatch: usingDefaultTarget,
         });
@@ -204,7 +218,7 @@ export function useSettlementSubmission(
         setIsSubmitting(false);
       }
     },
-    [userAddress, contractAddress, walletChainId, releaseChainId, usingDefaultTarget, validateSettlementAction, simulateSettlement]
+    [userAddress, contractAddress, activeChainId, expectedChainId, usingDefaultTarget, validateSettlementAction, simulateSettlement]
   );
 
   return {

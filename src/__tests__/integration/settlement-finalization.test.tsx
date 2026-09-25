@@ -17,9 +17,9 @@ jest.mock('wagmi', () => ({
 }));
 
 describe('Settlement and Finalization Integration', () => {
-  const mockContractAddress = '0x742d35Cc6634C0532925a3b844Bc9e7595f0eB1E';
+  const mockContractAddress = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8';
   const mockUserAddress = '0x1234567890123456789012345678901234567890';
-  const OPTIMISM_MAINNET = 10;
+  const OPTIMISM_MAINNET = 11155420;
 
   beforeEach(() => {
     jest.clearAllMocks();
