@@ -25,9 +25,38 @@ jest.mock('wagmi', () => ({
 
 // Mock contract registry
 jest.mock('@/lib/contracts/registry', () => ({
-  getContractAddress: jest.fn(() => '0x742d35Cc6634C0532925a3b844Bc9e7595f0eB1E'),
+  getContractAddress: jest.fn(() => '0x70997970C51812dc3A010C7d01b50e0d17dc79C8'),
   getContractAbi: jest.fn(() => []),
-  getProtocolVersion: jest.fn(() => 'v2.1.0'),
+  getProtocolVersion: jest.fn(() => '2.0.0'),
+  getReleaseChainId: jest.fn(() => 11155420),
+  getProtocolRelease: jest.fn(() => ({
+    manifest: {
+      protocolVersion: '2.0.0',
+      releaseId: 'v2.0.0-sepolia',
+      gitCommit: '5333c0acb9ccfb8a6a37ae76b3397d06781f0119',
+      compilerVersion: 'foundry-0.2.0',
+      chainId: 11155420,
+      deploymentBlock: 0,
+      abiVersion: '2.0.0',
+      eventSchemaVersion: '2.0.0',
+      parameterSetVersion: '2.0.0',
+      contracts: {
+        TruthBountyWeighted: {
+          proxy: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+          implementation: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+        },
+      },
+    },
+    addresses: {
+      chainId: 11155420,
+      TruthBountyWeighted: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+    },
+    abis: { TruthBountyWeighted: [] },
+    events: { version: '2.0.0', events: [] },
+    parameters: {},
+    roles: {},
+    checksums: { version: '1', files: {} },
+  })),
 }));
 
 const mockUseAccount = useAccount as jest.MockedFunction<typeof useAccount>;
@@ -94,7 +123,7 @@ describe('useDisputeSubmission', () => {
       isConnected: true,
     } as any);
 
-    mockUseChainId.mockReturnValue(10); // Optimism mainnet
+    mockUseChainId.mockReturnValue(11155420); // Reviewed release chain
   });
 
   describe('Validation', () => {
@@ -289,7 +318,7 @@ describe('useDisputeSubmission', () => {
       expect(simulation.projectedState?.newStatus).toBe('DISPUTED');
       expect(simulation.data).toBeDefined();
       expect(simulation.data?.from).toBe('0x1234567890123456789012345678901234567890');
-      expect(simulation.data?.to).toBe('0x742d35Cc6634C0532925a3b844Bc9e7595f0eB1E');
+      expect(simulation.data?.to).toBe('0x70997970C51812dc3A010C7d01b50e0d17dc79C8');
       expect(simulation.data?.value).toBe('1000000000000000000');
     });
 
@@ -410,7 +439,7 @@ describe('useDisputeSubmission', () => {
     it('should expose artifact version', () => {
       const { result } = renderHook(() => useDisputeSubmission());
 
-      expect(result.current.artifactVersion).toBe('v2.1.0');
+      expect(result.current.artifactVersion).toBe('2.0.0');
     });
   });
 

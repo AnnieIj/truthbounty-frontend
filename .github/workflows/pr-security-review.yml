@@ -1,0 +1,54 @@
+name: PR Security Review Guardian
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review, review_requested, submitted]
+
+permissions:
+  pull-requests: read
+  contents: read
+
+jobs:
+  pr-security-review:
+    name: Sensitive-path maintainer approval gate
+    runs-on: ubuntu-latest
+    env:
+      MAINTAINER_ALLOWLIST_LOGINS: ${{ vars.MAINTAINER_ALLOWLIST_LOGINS || secrets.MAINTAINER_ALLOWLIST_LOGINS || '' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Fetch PR changed files and reviews
+        id: pr-data
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          gh api \
+            -H "Accept: application/vnd.github+json" \
+            "repos/${REPO}/pulls/${PR_NUMBER}/files?per_page=100" \
+            --jq 'map(.filename) | join(",")' \
+            > /tmp/changed-files.txt
+
+          gh api \
+            -H "Accept: application/vnd.github+json" \
+            "repos/${REPO}/pulls/${PR_NUMBER}/reviews?per_page=100" \
+            > /tmp/reviews.json
+
+          echo "files=$(cat /tmp/changed-files.txt)" >> "$GITHUB_OUTPUT"
+          echo "reviews=/tmp/reviews.json" >> "$GITHUB_OUTPUT"
+
+      - name: Run PR guardian
+        run: |
+          node .github/scripts/pr-guardian.mjs \
+            --files '${{ steps.pr-data.outputs.files }}' \
+            --reviewsJson '${{ steps.pr-data.outputs.reviews }}' \
+            --reviewerTeam 'truthbounty/v2-maintainers'

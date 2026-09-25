@@ -8,6 +8,7 @@ import { queryClient } from '@/app/queries/queryClient';
 import { WebSocketProvider } from './WebSocketProvider';
 import { useRealtimeData } from '@/hooks/useRealtimeData';
 import { WalletScopedCacheSync } from '@/hooks/useWalletScopedCache';
+import { ReorgReconciliationSync } from './ReorgReconciliationSync';
 import { QueryDevtools } from './QueryDevtools';
 
 interface QueryProviderProps {
@@ -41,6 +42,7 @@ export function QueryProvider({ children }: QueryProviderProps) {
         <RealtimeDataSync />
         {/* V2-FE-063: drop wallet-scoped cache on account/chain change */}
         <WalletScopedCacheSync />
+        <ReorgReconciliationSync />
         {children}
       </WebSocketProvider>
       {/* DevTools are gated by process.env.NODE_ENV — never rendered in production. */}

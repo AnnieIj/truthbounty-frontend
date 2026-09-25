@@ -66,6 +66,8 @@
 
 Every route defines loading, empty, partial, stale, degraded, error, offline and unauthorized states. Protocol actions additionally define wrong-chain, approval-required, signature-requested, rejected, submitted, replaced, confirming, finalized, reverted, dropped and reorged states.
 
+API-backed views must expose stale or degraded projections with clear labels and explanatory helper text. A stale projection is one that no longer matches the canonical chain state or has not confirmed after a transaction is mined; a degraded projection is an incomplete or partially trusted API response that cannot be reconciled with the canonical transaction or protocol metadata.
+
 ## Content rules
 
 Use “projected”, “confirmed” and “finalized” precisely. Do not use “verified” as a synonym for “true”. Do not promise rewards before final settlement. Amounts show token units and base-unit-safe formatting.

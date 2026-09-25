@@ -8,6 +8,10 @@
     {
       "name": "RewardsClaimed",
       "signature": "RewardsClaimed(address,uint256)"
+    },
+    {
+      "name": "TreasuryWithdrawn",
+      "signature": "TreasuryWithdrawn(address,uint256,address)"
     }
   ]
 }

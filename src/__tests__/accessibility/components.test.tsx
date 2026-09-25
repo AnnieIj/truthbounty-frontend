@@ -1,5 +1,5 @@
 import React from 'react'
-import { render } from '../utils/test-utils'
+import { render, screen } from '../utils/test-utils'
 import { assertAccessible } from '../utils/axe'
 
 let mockTrust = {
@@ -8,6 +8,18 @@ let mockTrust = {
   accountAgeDays: 30,
   suspicious: false,
 }
+
+let mockNetwork = {
+  isOnline: false,
+  saveData: false,
+  effectiveType: null as string | null,
+  isLowBandwidth: false,
+}
+
+jest.mock('@/hooks/useNetworkStatus', () => ({
+  useNetworkStatus: () => mockNetwork,
+  readLowBandwidth: () => mockNetwork.isLowBandwidth,
+}))
 
 jest.mock('@/components/hooks/useTrust', () => ({
   useTrust: () => mockTrust,
@@ -116,6 +128,19 @@ describe('Accessibility: UI Components', () => {
   it('WebSocketStatus should have no axe violations', async () => {
     const { WebSocketStatus } = await import('@/components/ui/WebSocketStatus')
     const { container } = render(<WebSocketStatus />)
+    await assertAccessible(container)
+  })
+
+  it('OfflineBanner should have no axe violations when offline', async () => {
+    mockNetwork = {
+      isOnline: false,
+      saveData: false,
+      effectiveType: null,
+      isLowBandwidth: false,
+    }
+    const OfflineBanner = (await import('@/components/ui/OfflineBanner')).default
+    const { container } = render(<OfflineBanner />)
+    expect(screen.getByTestId('offline-banner')).toHaveAttribute('aria-live', 'polite')
     await assertAccessible(container)
   })
 })

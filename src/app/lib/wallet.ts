@@ -1,9 +1,9 @@
 /**
  * Wallet abstraction layer — V2 EVM stub.
  *
- * V2-FE-009: Removed mock hash generation (Math.random) and Stellar
- * dependencies. Real implementations are blocked on V2-FE-003 (contract
- * ABI freeze) and V2-FE-005 (indexer API interface).
+ * V2-FE-009: Removed synthetic hash generation and Stellar dependencies.
+ * Real implementations are blocked on V2-FE-003 (contract ABI freeze)
+ * and V2-FE-005 (indexer API interface).
  *
  * Callers of claimRewards should migrate to useEvmTransaction + the
  * TruthBounty rewards contract once ABIs are available.
