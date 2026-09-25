@@ -63,6 +63,12 @@ export function reconcileVerificationState(
   const hasReceipt = Boolean(receipt);
   const hasProjection = Boolean(projection);
   const hasOnChain = Boolean(onChain && onChain.exists);
+  const projectionIncomplete =
+    hasProjection &&
+    (!projection?.status ||
+      !projection?.txHash && !projection?.transactionHash ||
+      !projection?.claimId ||
+      typeof projection?.chainId !== 'number');
 
   if (!hasReceipt && !hasProjection && !hasOnChain) {
     return {
@@ -152,6 +158,16 @@ export function reconcileVerificationState(
   if (hasOnChain && receiptConfirmed) {
     const projectionConfirmed = normalizeStatus(projection?.status) === 'confirmed';
     if (hasProjection && !projectionConfirmed) {
+      if (projectionIncomplete) {
+        details.push('projection data is incomplete; API response is degraded');
+        return {
+          status: 'degraded',
+          isMismatch: false,
+          isWrongNetwork,
+          isProtocolDisabled: false,
+          details,
+        };
+      }
       details.push('projection has not confirmed the on-chain verification');
       return {
         status: 'stale',
@@ -163,6 +179,26 @@ export function reconcileVerificationState(
     }
     return {
       status: 'confirmed',
+      isMismatch: false,
+      isWrongNetwork,
+      isProtocolDisabled: false,
+      details,
+    };
+  }
+
+  if (
+    projectionIncomplete &&
+    (hasReceipt || hasOnChain) &&
+    !receiptRejected &&
+    !chainMismatch &&
+    !claimMismatch &&
+    !versionMismatch &&
+    !positionMismatch &&
+    !projectionMismatch
+  ) {
+    details.push('projection data is incomplete; API response is degraded');
+    return {
+      status: 'degraded',
       isMismatch: false,
       isWrongNetwork,
       isProtocolDisabled: false,

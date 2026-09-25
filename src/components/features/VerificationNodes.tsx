@@ -1,6 +1,7 @@
 import React from "react";
-import { verificationNodes } from "@/data/mock-data";
 import { VerificationNodesSkeleton } from "@/components/skeletons";
+
+const verificationNodes: Array<{ name: string; status: string; uptime: string; location: string }> = [];
 
 interface VerificationNodesProps {
   isLoading?: boolean;

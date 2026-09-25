@@ -43,10 +43,15 @@ export function StatusCard({ status, count }: StatusCardProps) {
 
   return (
     <div
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
       className={`${config.bgColor} border border-slate-700 rounded-lg p-6 min-w-[200px]`}
     >
       <div className="flex items-center gap-2 mb-4">
-        <span className={`text-lg ${config.textColor}`}>{config.icon}</span>
+        <span className={`text-lg ${config.textColor}`} aria-hidden="true">
+          {config.icon}
+        </span>
         <span className={`text-sm font-medium ${config.textColor}`}>
           {config.label}
         </span>

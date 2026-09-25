@@ -88,6 +88,36 @@ describe('useReceiptProjection', () => {
     expect(result.current.isMismatch).toBe(true);
   });
 
+  it('flags a partial projection as degraded when the API cannot prove integrity', () => {
+    const { result } = renderHook(() =>
+      useReceiptProjection({
+        txHash: '0xmno',
+        chainId: 10,
+        contractAddress: '0x123',
+        claimId: 'claim-degraded',
+        receipt: {
+          transactionHash: '0xmno',
+          status: '0x1',
+          blockNumber: 126n,
+          logs: [{ topic0: '0xevent' }],
+          from: '0xaaa',
+          to: '0x123',
+          chainId: 10,
+        },
+        projection: {
+          status: undefined,
+          chainId: 10,
+          claimId: 'claim-degraded',
+          contractAddress: '0x123',
+        },
+        artifactVersion: 'v2.1.0',
+      }),
+    );
+
+    expect(result.current.status).toBe('degraded');
+    expect(result.current.isMismatch).toBe(false);
+  });
+
   it('detects wrong-network and version mismatches before accepting the projection', () => {
     const { result } = renderHook(() =>
       useReceiptProjection({

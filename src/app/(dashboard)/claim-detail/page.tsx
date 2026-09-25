@@ -3,6 +3,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { MotionSafeStatus } from '@/components/ui/MotionSafeStatus';
 
 export default function ClaimDetailRedirectPage() {
   const router = useRouter();
@@ -44,10 +45,10 @@ export default function ClaimDetailRedirectPage() {
           Redirecting you to your claims dashboard...
         </p>
 
-        {/* Destination */}
-        <div className="mt-6 inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-500 shadow-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400">
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
-          Claims dashboard
+        {/* Destination — V2-FE-071: status is text+color with an optional
+            decorative pulse that is suppressed under reduced motion. */}
+        <div className="mt-6 inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium shadow-sm dark:border-gray-800 dark:bg-gray-900">
+          <MotionSafeStatus label="Claims dashboard" tone="success" pulse />
         </div>
       </div>
     </main>
