@@ -15,6 +15,8 @@ const mockConnector = {
   type: 'mock',
 } as unknown as Connector;
 
+let mockConnectors: Connector[] = [mockConnector];
+
 let mockAccount = {
   address: undefined as `0x${string}` | undefined,
   isConnected: false,
@@ -58,7 +60,7 @@ jest.mock('wagmi', () => ({
   useAccount: () => mockAccount,
   useConnect: () => ({ connect: mockConnect, isPending: mockConnectPending }),
   useDisconnect: () => ({ disconnect: mockDisconnect }),
-  useConnectors: () => [mockConnector],
+  useConnectors: () => mockConnectors,
 }));
 
 beforeEach(() => {
@@ -67,6 +69,7 @@ beforeEach(() => {
   mockDisconnect.mockClear();
   mockConnectError = null;
   mockConnectPending = false;
+  mockConnectors = [mockConnector];
   mockAccount = {
     address: undefined,
     isConnected: false,
@@ -163,5 +166,83 @@ describe('useWallet', () => {
     mockAccount = { ...mockAccount, isReconnecting: true };
     const reconnecting = renderHook(() => useWallet());
     expect(reconnecting.result.current.state).toBe('reconnecting');
+  });
+});
+
+describe('useWallet — deterministic reconnection (V2-FE-045)', () => {
+  const connectedAccount = {
+    address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as `0x${string}`,
+    isConnected: true,
+    isConnecting: false,
+    isReconnecting: false,
+    chainId: 11155420,
+    connector: mockConnector,
+  };
+
+  it('does not expose a trusted connection while the provider is on an unsupported chain', async () => {
+    mockAccount = { ...connectedAccount, chainId: 1 };
+    const { result } = renderHook(() => useWallet());
+
+    await waitFor(() => expect(result.current.state).toBe('unsupported-chain'));
+    expect(result.current.isConnected).toBe(false);
+    expect(result.current.unsupportedChain).toBe(true);
+    expect(result.current.address).toBeUndefined();
+    expect(result.current.chainId).toBeUndefined();
+  });
+
+  it('fails closed when the provider reports a malformed account', async () => {
+    mockAccount = {
+      ...connectedAccount,
+      address: '0xnot-an-address' as `0x${string}`,
+    };
+    const { result } = renderHook(() => useWallet());
+
+    await waitFor(() => expect(result.current.isConnected).toBe(false));
+    expect(result.current.address).toBeUndefined();
+  });
+
+  it('does not reconnect when the provider already confirms a connection', async () => {
+    mockAccount = connectedAccount;
+    const { result } = renderHook(() => useWallet());
+
+    await waitFor(() => expect(result.current.isConnected).toBe(true));
+    act(() => result.current.reconnect());
+
+    expect(mockConnect).not.toHaveBeenCalled();
+  });
+
+  it('does not race an in-flight provider connection', async () => {
+    mockAccount = { ...mockAccount, isReconnecting: true };
+    localStorage.setItem('truthbounty:wallet:connector', mockConnector.id);
+    const { result } = renderHook(() => useWallet());
+
+    act(() => result.current.reconnect());
+
+    expect(mockConnect).not.toHaveBeenCalled();
+  });
+
+  it('clears a stale connector preference instead of connecting', () => {
+    localStorage.setItem('truthbounty:wallet:connector', 'removed-connector');
+    const { result } = renderHook(() => useWallet());
+
+    // Re-seed in case the mount cleanup already dropped it, then reconnect.
+    localStorage.setItem('truthbounty:wallet:connector', 'removed-connector');
+    act(() => result.current.reconnect());
+
+    expect(mockConnect).not.toHaveBeenCalled();
+    expect(localStorage.getItem('truthbounty:wallet:connector')).toBeNull();
+  });
+
+  it('drops the cached preference when the provider account is untrusted', async () => {
+    localStorage.setItem('truthbounty:wallet:connector', mockConnector.id);
+    mockAccount = {
+      ...connectedAccount,
+      address: '0xdead' as `0x${string}`,
+    };
+    renderHook(() => useWallet());
+
+    await waitFor(() =>
+      expect(localStorage.getItem('truthbounty:wallet:connector')).toBeNull(),
+    );
   });
 });

@@ -2,6 +2,26 @@
 // 8. Feature-branch regression checks — no mock/placeholder runtime deps
 // ---------------------------------------------------------------------------
 
+describe('V2-FE-045 — wallet reconnection has no mock/placeholder dependencies', () => {
+  const productionFiles = [
+    path.resolve(__dirname, '../../lib/wallet/reconnect.ts'),
+    path.resolve(__dirname, '../../hooks/useWallet.ts'),
+  ];
+
+  it.each(productionFiles)('%s does not import mocks or simulators', (filePath) => {
+    const content = fs.readFileSync(filePath, 'utf-8');
+    expect(content).not.toMatch(/mock-wagmi|transaction-simulator|@stellar\/freighter-api/i);
+    expect(content).not.toContain('Math.random');
+  });
+
+  it('reconnect policy does not read a cached address/chain from storage', () => {
+    const filePath = path.resolve(__dirname, '../../lib/wallet/reconnect.ts');
+    const content = fs.readFileSync(filePath, 'utf-8');
+    // Only the connector id hint may be persisted — never identity material.
+    expect(content).not.toMatch(/localStorage|sessionStorage/);
+  });
+});
+
 describe('V2-FE-048 — session lifecycle has no mock/placeholder dependencies', () => {
   const productionFiles = [
     path.resolve(__dirname, '../../lib/auth/session-lifecycle.ts'),
