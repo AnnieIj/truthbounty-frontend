@@ -24,9 +24,9 @@ jest.mock('wagmi', () => ({
   useWriteContract: jest.fn(),
 }));
 
-const mockContractAddress = '0x1234567890abcdef1234567890abcdef12345678';
+const mockContractAddress = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8';
 const mockUserAddress = MOCK_ADDRESS_1;
-const OPTIMISM_MAINNET = 10;
+const OPTIMISM_MAINNET = 11155420;
 const TX_HASH = MOCK_TX_HASH_1;
 const APPEAL_ID = '0x' + 'ab'.repeat(32);
 
@@ -139,23 +139,29 @@ describe('Appeal Participation Integration', () => {
         true
       );
 
-      let transaction: any;
+      // Step 5: Submit — fail closed without a real wallet write path (V2-FE-100)
+      let submitError: Error | undefined;
       await act(async () => {
-        transaction = await participationResult.current.submitParticipation(
-          context,
-          'SUPPORT',
-          '500000000000000000'
-        );
+        try {
+          await participationResult.current.submitParticipation(
+            context,
+            'SUPPORT',
+            '500000000000000000'
+          );
+        } catch (e) {
+          submitError = e as Error;
+        }
       });
 
-      expect(transaction).toBeDefined();
-      expect(transaction?.transactionHash).toMatch(/^0x[a-f0-9]{64}$/);
-      expect(transaction?.status).toBe('CONFIRMED');
+      expect(submitError).toBeDefined();
+      expect(submitError?.message).toMatch(/no synthetic transaction hash|writeContract/i);
 
+      // Reconciliation only proceeds from a real receipt — fabricate nothing here
+      const realHash = '0x' + 'ab'.repeat(32);
       (wagmi.useWaitForTransactionReceipt as jest.Mock).mockReturnValue({
         data: {
           status: 'success',
-          transactionHash: transaction?.transactionHash,
+          transactionHash: realHash,
           blockNumber: BigInt(12345680),
         },
         isLoading: false,
@@ -164,7 +170,18 @@ describe('Appeal Participation Integration', () => {
 
       const { result: reconciliationResult } = renderHook(() =>
         useAppealReconciliation({
-          transaction: transaction!,
+          transaction: {
+            transactionHash: realHash,
+            from: mockUserAddress,
+            to: mockContractAddress,
+            status: 'PENDING',
+            appealId: 'appeal-123',
+            claimId: 'claim-456',
+            disputeId: 'dispute-789',
+            decision: 'SUPPORT',
+            stakeAmount: '500000000000000000',
+            timestamp: new Date().toISOString(),
+          },
         })
       );
 
@@ -197,17 +214,23 @@ describe('Appeal Participation Integration', () => {
 
       const { result: participationResult } = renderAppealHook();
 
-      let transaction: any;
+      let error: Error | undefined;
       await act(async () => {
-        transaction = await participationResult.current.submitParticipation(
-          contextResult.current.context!,
-          'OPPOSE',
-          '300000000000000000'
-        );
+        try {
+          await participationResult.current.submitParticipation(
+            contextResult.current.context!,
+            'OPPOSE',
+            '300000000000000000'
+          );
+        } catch (e) {
+          error = e as Error;
+        }
       });
 
-      expect(transaction?.decision).toBe('OPPOSE');
-      expect(transaction?.stakeAmount).toBe('300000000000000000');
+      // Fail closed — never invent OPPOSE participation without a wallet write
+      expect(error).toBeDefined();
+      expect(error?.message).toMatch(/no synthetic transaction hash|writeContract/i);
+      expect(participationResult.current.lastTransaction).toBeNull();
     });
   });
 
@@ -275,19 +298,26 @@ describe('Appeal Participation Integration', () => {
 
       const { result: participationResult } = renderAppealHook();
 
-      let transaction: any;
+      // Submission fails closed without a wallet write path
       await act(async () => {
-        transaction = await participationResult.current.submitParticipation(
-          contextResult.current.context!,
-          'SUPPORT',
-          '500000000000000000'
-        );
+        try {
+          await participationResult.current.submitParticipation(
+            contextResult.current.context!,
+            'SUPPORT',
+            '500000000000000000'
+          );
+        } catch {
+          // expected
+        }
       });
 
+      const revertedHash = '0x' + 'cd'.repeat(32);
+
+      // Mock reverted transaction from a real-shaped receipt
       (wagmi.useWaitForTransactionReceipt as jest.Mock).mockReturnValue({
         data: {
           status: 'reverted',
-          transactionHash: transaction?.transactionHash,
+          transactionHash: revertedHash,
         },
         isLoading: false,
         error: null,
@@ -295,7 +325,18 @@ describe('Appeal Participation Integration', () => {
 
       const { result: reconciliationResult } = renderHook(() =>
         useAppealReconciliation({
-          transaction: transaction!,
+          transaction: {
+            transactionHash: revertedHash,
+            from: mockUserAddress,
+            to: mockContractAddress,
+            status: 'PENDING',
+            appealId: 'appeal-123',
+            claimId: 'claim-456',
+            disputeId: 'dispute-789',
+            decision: 'SUPPORT',
+            stakeAmount: '500000000000000000',
+            timestamp: new Date().toISOString(),
+          },
         })
       );
 
@@ -326,19 +367,25 @@ describe('Appeal Participation Integration', () => {
 
       const { result: participationResult } = renderAppealHook();
 
-      let transaction: any;
+      let transactionError: Error | undefined;
       await act(async () => {
-        transaction = await participationResult.current.submitParticipation(
-          contextResult.current.context!,
-          'SUPPORT',
-          '500000000000000000'
-        );
+        try {
+          await participationResult.current.submitParticipation(
+            contextResult.current.context!,
+            'SUPPORT',
+            '500000000000000000'
+          );
+        } catch (e) {
+          transactionError = e as Error;
+        }
       });
+      expect(transactionError).toBeDefined();
 
+      const confirmedHash = '0x' + 'ef'.repeat(32);
       (wagmi.useWaitForTransactionReceipt as jest.Mock).mockReturnValue({
         data: {
           status: 'success',
-          transactionHash: transaction?.transactionHash,
+          transactionHash: confirmedHash,
         },
         isLoading: false,
         error: null,
@@ -346,7 +393,18 @@ describe('Appeal Participation Integration', () => {
 
       const { result: reconciliationResult } = renderHook(() =>
         useAppealReconciliation({
-          transaction: transaction!,
+          transaction: {
+            transactionHash: confirmedHash,
+            from: mockUserAddress,
+            to: mockContractAddress,
+            status: 'PENDING',
+            appealId: 'appeal-123',
+            claimId: 'claim-456',
+            disputeId: 'dispute-789',
+            decision: 'SUPPORT',
+            stakeAmount: '500000000000000000',
+            timestamp: new Date().toISOString(),
+          },
         })
       );
 
@@ -411,17 +469,22 @@ describe('Appeal Participation Integration', () => {
 
       const { result: participationResult } = renderAppealHook();
 
-      let firstTransaction: any;
+      // First submission fails closed without a wallet write path — no invented hash
+      let firstError: Error | undefined;
       await act(async () => {
-        firstTransaction =
+        try {
           await participationResult.current.submitParticipation(
             contextResult.current.context!,
             'SUPPORT',
             '500000000000000000'
           );
+        } catch (e) {
+          firstError = e as Error;
+        }
       });
 
-      expect(firstTransaction).toBeDefined();
+      expect(firstError).toBeDefined();
+      expect(participationResult.current.lastTransaction).toBeNull();
 
       const updatedContext = {
         ...contextResult.current.context!,

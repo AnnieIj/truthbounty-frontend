@@ -1,0 +1,37 @@
+# TASK 4 CI Snippet — Secret Scan Job
+# To be integrated into .github/workflows/ci.yml at Task 13 time.
+#
+# This fragment contains TWO items:
+#   (A) A standalone `secret-scan` job that runs BEFORE the build job.
+#       It scans `src/` and `release/` for embedded secrets.
+#       It uses `needs: []` (or absence of needs) so it can start
+#       immediately at the beginning of the workflow.
+#   (B) A post-build step that scans the `.next/` output directory
+#       AFTER `npm run build` inside an existing build job. Paste
+#       this step right after the build step in your existing build
+#       job definition.
+#
+# -----------------------------------------------------------------
+# (A) Standalone pre-build job: secret-scan
+# -----------------------------------------------------------------
+secret-scan:
+  name: Secret scan (src + release)
+  runs-on: ubuntu-latest
+  steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js 24
+      uses: actions/setup-node@v4
+      with:
+        node-version: 24
+
+    - name: Run secret scan (src + release)
+      run: node scripts/secret-scan.mjs src release
+
+# -----------------------------------------------------------------
+# (B) Post-build step snippet — paste INSIDE your existing build
+#     job, immediately AFTER the `npm run build` step.
+# -----------------------------------------------------------------
+# - name: Run secret scan (.next build output)
+#   run: node scripts/secret-scan.mjs .next

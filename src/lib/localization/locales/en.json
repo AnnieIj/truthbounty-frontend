@@ -1,0 +1,32 @@
+{
+  "app": {
+    "title": "TruthBounty V2",
+    "loading": "Loading...",
+    "error": "An error occurred",
+    "retry": "Retry",
+    "no_wallet": "No wallet detected",
+    "wrong_chain": "Wrong network detected. Please switch to Optimism.",
+    "disconnected": "Wallet disconnected"
+  },
+  "common": {
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "success": "Success",
+    "failed": "Failed",
+    "pending": "Pending",
+    "accepted": "Accepted",
+    "rejected": "Rejected"
+  },
+  "wallet": {
+    "connect": "Connect Wallet",
+    "disconnect": "Disconnect",
+    "switch_network": "Switch Network",
+    "account": "Account",
+    "balance": "Balance"
+  },
+  "locale": {
+    "switch": "Switch Language",
+    "en": "English",
+    "es": "Español"
+  }
+}

@@ -1,0 +1,2 @@
+      - name: Check lockfile integrity
+        run: node scripts/check-lockfile.mjs

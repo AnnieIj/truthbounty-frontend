@@ -13,7 +13,7 @@
  *  - contract ABIs throw NotImplemented until V2-FE-003/005 are merged
  */
 
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import {
   useAccount,
   useChainId,

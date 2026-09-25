@@ -2,6 +2,7 @@ import {
   createBrowserSessionStore,
   createMemorySessionStore,
   isSessionActive,
+  isSessionBoundToAccount,
 } from '../session-store';
 import type { SiweSession } from '../siwe-types';
 
@@ -30,6 +31,36 @@ describe('isSessionActive', () => {
 
   it('returns false after expiry', () => {
     expect(isSessionActive(makeSession({ expiresAt: NOW - 1 }), NOW)).toBe(false);
+  });
+});
+
+describe('isSessionBoundToAccount', () => {
+  const OTHER = '0x1111111111111111111111111111111111111111';
+
+  it('binds an active session to the matching account (case-insensitive)', () => {
+    const session = makeSession();
+    expect(isSessionBoundToAccount(session, session.address, NOW)).toBe(true);
+    expect(isSessionBoundToAccount(session, session.address.toUpperCase(), NOW)).toBe(true);
+  });
+
+  it('rejects a session whose owner does not match the provider account', () => {
+    expect(isSessionBoundToAccount(makeSession(), OTHER, NOW)).toBe(false);
+  });
+
+  it('rejects when there is no confirmed provider account', () => {
+    expect(isSessionBoundToAccount(makeSession(), null, NOW)).toBe(false);
+    expect(isSessionBoundToAccount(makeSession(), undefined, NOW)).toBe(false);
+    expect(isSessionBoundToAccount(makeSession(), '', NOW)).toBe(false);
+  });
+
+  it('rejects an expired session even when the account matches', () => {
+    const expired = makeSession({ expiresAt: NOW - 1 });
+    expect(isSessionBoundToAccount(expired, expired.address, NOW)).toBe(false);
+  });
+
+  it('rejects a missing session', () => {
+    expect(isSessionBoundToAccount(null, '0xabc', NOW)).toBe(false);
+    expect(isSessionBoundToAccount(undefined, '0xabc', NOW)).toBe(false);
   });
 });
 
