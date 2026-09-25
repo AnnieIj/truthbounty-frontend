@@ -55,6 +55,10 @@ describe('usePrefersReducedMotion (in MotionSafeStatus/Probe)', () => {
 });
 
 describe('MotionSafeStatus — V2-FE-071 status comprehension', () => {
+  beforeEach(() => {
+    installMatchMedia();
+  });
+
   it('always renders the label text (status never depends on motion)', () => {
     render(<MotionSafeStatus label="Pending" tone="pending" pulse />);
     expect(screen.getByText('Pending')).toBeInTheDocument();
@@ -62,10 +66,6 @@ describe('MotionSafeStatus — V2-FE-071 status comprehension', () => {
 
   it('keeps the pulse class when motion is allowed', () => {
     render(<MotionSafeStatus label="Pending" tone="pending" pulse />);
-    const dot = screen.getByLabelText('Pending', { selector: '[aria-hidden="true"]' })
-      ? null
-      : null;
-    void dot;
     // The decorative dot is aria-hidden; assert via DOM query.
     const spans = document.querySelectorAll('span[aria-hidden="true"]');
     expect(spans.length).toBeGreaterThan(0);
