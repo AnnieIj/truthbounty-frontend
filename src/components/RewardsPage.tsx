@@ -10,6 +10,7 @@ import {
   getReleaseChainId,
 } from "@/lib/contracts/registry";
 import { getTransactionExplorerUrl } from "@/lib/explorer";
+import { useWriteReadiness } from "@/hooks/useWriteReadiness";
 
 const publicClient = createPublicClient({
   chain: optimismSepolia,
@@ -21,6 +22,12 @@ export default function RewardsPage() {
   const contractAddress = getContractAddress("TruthBountyWeighted");
   const contractAbi = getContractAbi("TruthBountyWeighted");
   const chainId = getReleaseChainId();
+
+  // V2-FE-100: fail-closed readiness for claim writes
+  const readiness = useWriteReadiness({
+    targetAddress: contractAddress,
+    requireCanonicalMatch: true,
+  });
 
   const [balance, setBalance] = useState<string>("0");
   const [rewards, setRewards] = useState<Array<{ amount?: number | string; id?: string; reason?: string }>>([]);
@@ -34,7 +41,9 @@ export default function RewardsPage() {
     [rewards],
   );
 
-  const canClaim = Boolean(address && !isPending && !loading && claimableAmount > 0);
+  const canClaim = Boolean(
+    address && !isPending && !loading && claimableAmount > 0 && readiness.isReady,
+  );
 
   const fetchBalance = useCallback(async () => {
     if (!address) return;
@@ -107,7 +116,26 @@ export default function RewardsPage() {
         <strong>Balance:</strong> {balance}
       </p>
 
-      <button onClick={handleClaim} disabled={!canClaim}>
+      {address && !readiness.isReady && readiness.message && (
+        <p data-testid="write-readiness-reason" role="status">
+          {readiness.message}
+        </p>
+      )}
+
+      <button
+        onClick={handleClaim}
+        disabled={!canClaim}
+        aria-label={
+          isPending
+            ? "Claiming rewards"
+            : !readiness.isReady
+              ? readiness.message || "Claim unavailable"
+              : "Claim Rewards"
+        }
+        aria-describedby={
+          address && !readiness.isReady ? "write-readiness-reason" : undefined
+        }
+      >
         {isPending ? "Claiming..." : "Claim Rewards"}
       </button>
 

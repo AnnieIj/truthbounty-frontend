@@ -22,7 +22,7 @@
 
 import { useCallback, useMemo, useState } from 'react';
 import { encodeFunctionData, maxUint256 } from 'viem';
-import type { Abi, Address, Hash } from 'viem';
+import type { Abi, Hash } from 'viem';
 import { useAccount, useChainId, usePublicClient, useWriteContract } from 'wagmi';
 import {
   AppealDecision,
@@ -35,6 +35,7 @@ import {
   AppealSimulationResult,
   AppealValidation,
 } from '@/app/types/appeal';
+import { evaluateWriteTarget } from '@/lib/contracts/write-gate';
 import { erc20Abi } from '@/config/protocol/verification-artifact';
 import {
   getContractAbi,
@@ -659,6 +660,20 @@ export function useAppealParticipation(
           return fail(
             'SIMULATION_REVERTED',
             `Simulation reverted: ${extractMessage(simErr)}`
+          );
+        }
+
+        // V2-FE-100 readiness gate — fail closed before any submission attempt
+        const gate = evaluateWriteTarget({
+          account: userAddress ?? null,
+          chainId: currentChainId,
+          expectedChainId,
+          targetAddress: contractAddress,
+        });
+        if (!gate.ready) {
+          return fail(
+            'UNEXPECTED_ERROR',
+            gate.reason ?? 'Wallet is not ready for appeal participation.'
           );
         }
 
