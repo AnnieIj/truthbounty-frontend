@@ -3,8 +3,23 @@
  *
  * Parameterizes confirmation/finality rules by canonical chain configuration.
  * Never hardcode blockchain parameters - always use chain config.
- * Values are validated against published protocol specifications.
+ * Contract addresses are bound to the versioned release manifest (V2-FE-043);
+ * undeployed chains leave `truthBounty` unset — zero/placeholder addresses
+ * are never accepted.
  */
+
+import { isValidContractAddress } from '@/lib/contracts/address-guard';
+import { getContractAddress, getReleaseChainId } from '@/lib/contracts/registry';
+
+function releaseAddressForChain(chainId: number): `0x${string}` | undefined {
+  try {
+    if (getReleaseChainId() !== chainId) return undefined;
+    const address = getContractAddress('TruthBountyWeighted');
+    return isValidContractAddress(address) ? address : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 export interface ChainFinality {
   /** Chain ID (EIP-155) */
@@ -86,8 +101,11 @@ export interface ChainFinality {
 
   // Contract verification (TruthBounty canonical)
   contracts: {
-    /** Primary TruthBounty contract address */
-    truthBounty: `0x${string}`;
+    /**
+     * Primary TruthBounty contract address from the reviewed release manifest.
+     * Undefined when the chain has no reviewed deployment (never a placeholder).
+     */
+    truthBounty?: `0x${string}`;
     /** Token contract (if separate) */
     token?: `0x${string}`;
     /** Indexer contract hooks */
@@ -173,7 +191,7 @@ export const OPTIMISM_MAINNET: ChainFinality = {
   },
 
   contracts: {
-    truthBounty: '0x0000000000000000000000000000000000000000', // TODO: Set canonical address
+    // No reviewed mainnet deployment in the pinned release; leave unset.
   },
 
   features: {
@@ -207,7 +225,9 @@ export const OPTIMISM_SEPOLIA: ChainFinality = {
     txPath: '/tx/{hash}',
   },
   contracts: {
-    truthBounty: '0x0000000000000000000000000000000000000000', // TODO: Set testnet address
+    ...(releaseAddressForChain(11155420)
+      ? { truthBounty: releaseAddressForChain(11155420) as `0x${string}` }
+      : {}),
   },
 };
 
@@ -261,7 +281,7 @@ export const BASE_MAINNET: ChainFinality = {
   },
 
   contracts: {
-    truthBounty: '0x0000000000000000000000000000000000000000', // TODO: Set canonical address
+    // No reviewed Base deployment in the pinned release; leave unset.
   },
 
   features: {
@@ -327,7 +347,7 @@ export const ETHEREUM_MAINNET: ChainFinality = {
   },
 
   contracts: {
-    truthBounty: '0x0000000000000000000000000000000000000000', // TODO: Set address
+    // No reviewed Ethereum mainnet deployment in the pinned release; leave unset.
   },
 
   features: {

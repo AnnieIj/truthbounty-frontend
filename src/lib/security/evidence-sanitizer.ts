@@ -129,6 +129,28 @@ export function safeUrl(rawUrl: unknown): SafeUrlCheck {
     return { ok: false, reason: 'disallowed_scheme', message };
   }
 
+  // Fail closed on whitespace/control characters smuggled into the scheme or
+  // authority: they can hide the real destination (`ht\ntps://…`,
+  // `https://exa mple.com`). Whitespace in the query/fragment is allowed
+  // because the URL parser encodes it safely and it cannot change the origin.
+  const rawTrimmed = rawUrl.trim();
+  const rawSchemeMatch = /^([a-zA-Z][a-zA-Z0-9+.-]*):/.exec(rawTrimmed);
+  const rawScheme = rawSchemeMatch ? rawSchemeMatch[1] : '';
+  if (/[\s\u0000-\u001f\u007f-\u009f]/.test(rawScheme)) {
+    return { ok: false, reason: 'unsafe_hostname', message };
+  }
+  let rawAuthority = rawTrimmed.slice(rawScheme.length + 1);
+  if (rawAuthority.startsWith('//')) {
+    rawAuthority = rawAuthority.slice(2);
+  }
+  const authorityEnd = rawAuthority.search(/[/?#]/);
+  if (authorityEnd !== -1) {
+    rawAuthority = rawAuthority.slice(0, authorityEnd);
+  }
+  if (/[\s\u0000-\u001f\u007f-\u009f]/.test(rawAuthority)) {
+    return { ok: false, reason: 'unsafe_hostname', message };
+  }
+
   let parsed: URL;
   try {
     parsed = new URL(cleaned);
@@ -175,7 +197,11 @@ export function safeImageUrl(rawUrl: unknown): SafeUrlCheck {
   if (!result.ok) return result;
 
   if (result.kind === 'app') {
-    return { ok: false, reason: 'disallowed_scheme', message: result.message };
+    return {
+      ok: false,
+      reason: 'disallowed_scheme',
+      message: 'This media was blocked for security reasons.',
+    };
   }
 
   // ipfs: URIs are renderable after gateway conversion
@@ -191,7 +217,11 @@ export function safeImageUrl(rawUrl: unknown): SafeUrlCheck {
     try {
       return { ok: true, href: http, kind: 'external', url: new URL(http) };
     } catch {
-      return { ok: false, reason: 'unparseable', message: result.message };
+      return {
+        ok: false,
+        reason: 'unparseable',
+        message: 'This media was blocked for security reasons.',
+      };
     }
   }
 
