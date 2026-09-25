@@ -1,140 +1,138 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback } from "react";
-import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
-import { createPublicClient, formatUnits, http } from "viem";
-import { optimismSepolia } from "viem/chains";
-import {
-  getContractAbi,
-  getContractAddress,
-  getReleaseChainId,
-} from "@/lib/contracts/registry";
+import { useCallback, useMemo } from "react";
+import { formatUnits } from "viem";
+
+import { REWARD_ALLOCATION_EXPLANATIONS } from "@/app/types/rewards";
+import { useRewardClaim } from "@/hooks/useRewardClaim";
+import { useRewardEntitlements } from "@/hooks/useRewardEntitlements";
 import { getTransactionExplorerUrl } from "@/lib/explorer";
 
-const publicClient = createPublicClient({
-  chain: optimismSepolia,
-  transport: http(),
-});
-
 export default function RewardsPage() {
-  const { address } = useAccount();
-  const contractAddress = getContractAddress("TruthBountyWeighted");
-  const contractAbi = getContractAbi("TruthBountyWeighted");
-  const chainId = getReleaseChainId();
+  const {
+    entitlements,
+    isLoading,
+    isError,
+    error,
+    isUnsupported,
+    unsupportedReason,
+    refetch,
+  } = useRewardEntitlements();
+  const {
+    submitClaim,
+    status,
+    projection,
+    failure,
+    isUnsupported: isClaimUnsupported,
+    unsupportedReason: claimUnsupportedReason,
+    reset,
+  } = useRewardClaim({
+    onConfirmed: () => void refetch(),
+  });
 
-  const [balance, setBalance] = useState<string>("0");
-  const [rewards, setRewards] = useState<Array<{ amount?: number | string; id?: string; reason?: string }>>([]);
-  const [loading, setLoading] = useState(false);
-
-  const { data: hash, writeContract, isPending } = useWriteContract();
-  const { isSuccess } = useWaitForTransactionReceipt({ hash });
-
-  const claimableAmount = useMemo(
-    () => rewards.reduce((sum, reward) => sum + Number(reward?.amount ?? 0), 0),
-    [rewards],
+  const claimable = useMemo(
+    () => entitlements.filter((entitlement) => entitlement.claimable),
+    [entitlements],
   );
+  const isClaimInProgress =
+    status === "preparing" ||
+    status === "signature-requested" ||
+    status === "submitted" ||
+    status === "confirming";
+  const unavailableReason = unsupportedReason ?? claimUnsupportedReason;
 
-  const canClaim = Boolean(address && !isPending && !loading && claimableAmount > 0);
+  const claimAll = useCallback(() => {
+    void submitClaim(
+      { claimIds: claimable.map((entitlement) => entitlement.claimId) },
+      claimable,
+    );
+  }, [claimable, submitClaim]);
 
-  const fetchBalance = useCallback(async () => {
-    if (!address) return;
+  if (isUnsupported || isClaimUnsupported) {
+    return (
+      <section aria-label="Claimable rewards">
+        <p role="status">
+          {unavailableReason ?? "Rewards are unavailable for this wallet or network."}
+        </p>
+      </section>
+    );
+  }
 
-    try {
-      const result = await publicClient.readContract({
-        address: contractAddress,
-        abi: contractAbi,
-        functionName: "balanceOf",
-        args: [address],
-      });
+  if (isLoading) {
+    return (
+      <section aria-label="Claimable rewards">
+        <p role="status" aria-label="Loading claimable rewards">Loading rewards…</p>
+      </section>
+    );
+  }
 
-      setBalance(formatUnits(result as bigint, 18));
-    } catch (err) {
-      console.error("Balance fetch error:", err);
-    }
-  }, [address, contractAddress, contractAbi]);
-
-  const fetchRewards = useCallback(async () => {
-    if (!address) return;
-
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/rewards?user=${address}`);
-      const data = await res.json();
-      setRewards(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error("Rewards fetch error:", err);
-      setRewards([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [address]);
-
-  const handleClaim = async () => {
-    if (!canClaim) return;
-
-    try {
-      writeContract({
-        address: contractAddress,
-        abi: contractAbi,
-        functionName: "claimRewards",
-        chainId,
-      });
-    } catch (err) {
-      console.error("Claim error:", err);
-    }
-  };
-
-  useEffect(() => {
-    if (isSuccess) {
-      void fetchBalance();
-      void fetchRewards();
-    }
-  }, [isSuccess, fetchBalance, fetchRewards]);
-
-  useEffect(() => {
-    void fetchBalance();
-    void fetchRewards();
-  }, [address, fetchBalance, fetchRewards]);
+  if (isError) {
+    return (
+      <section aria-label="Claimable rewards">
+        <p role="alert">{error ?? "Failed to load claimable rewards."}</p>
+        <button type="button" onClick={() => void refetch()}>Retry</button>
+      </section>
+    );
+  }
 
   return (
-    <div style={{ padding: 20 }}>
+    <section aria-label="Claimable rewards">
       <h1>Rewards Dashboard</h1>
-
-      <p>
-        <strong>Wallet:</strong> {address || "Not connected"}
-      </p>
-      <p>
-        <strong>Balance:</strong> {balance}
-      </p>
-
-      <button onClick={handleClaim} disabled={!canClaim}>
-        {isPending ? "Claiming..." : "Claim Rewards"}
+      <button
+        type="button"
+        onClick={claimAll}
+        disabled={claimable.length === 0 || isClaimInProgress || status === "confirmed"}
+        aria-busy={isClaimInProgress}
+      >
+        {isClaimInProgress ? "Claiming..." : "Claim Rewards"}
       </button>
 
-      {hash && (
-        <p>
-          Tx Hash:{" "}
-          <a href={getTransactionExplorerUrl(hash, chainId)} target="_blank" rel="noreferrer">
-            View on Explorer
-          </a>
+      {failure && (
+        <p role="alert">
+          {failure.reason}{" "}
+          <button type="button" onClick={reset}>Dismiss</button>
         </p>
       )}
 
-      <h2>Claimable Rewards</h2>
+      {projection && (
+        <div role="status" aria-live="polite">
+          <p>Transaction confirmed.</p>
+          <a
+            href={getTransactionExplorerUrl(projection.transactionHash)}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            View on Explorer
+          </a>
+          {projection.receivedAssets.length > 0 && (
+            <ul aria-label="Assets received">
+              {projection.receivedAssets.map((asset) => (
+                <li key={asset.asset}>
+                  {asset.asset}: {asset.amount.toString()}
+                </li>
+              ))}
+            </ul>
+          )}
+          {projection.outstandingClaimIds.length > 0 && (
+            <p>
+              {projection.outstandingClaimIds.length} entitlement{projection.outstandingClaimIds.length === 1 ? " remains" : "s remain"} outstanding.
+            </p>
+          )}
+        </div>
+      )}
 
-      {loading ? (
-        <p>Loading...</p>
-      ) : rewards.length === 0 ? (
+      <h2>Claimable Rewards</h2>
+      {claimable.length === 0 ? (
         <p>No rewards available</p>
       ) : (
         <ul>
-          {rewards.map((r, i) => (
-            <li key={i}>
-              {r.amount} tokens - {r.reason}
+          {claimable.map((entitlement) => (
+            <li key={entitlement.claimId}>
+              {formatUnits(entitlement.amount, entitlement.decimals)} tokens - {REWARD_ALLOCATION_EXPLANATIONS[entitlement.category]}
             </li>
           ))}
         </ul>
       )}
-    </div>
+    </section>
   );
 }
