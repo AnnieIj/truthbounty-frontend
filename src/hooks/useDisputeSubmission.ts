@@ -20,7 +20,9 @@ import {
   getContractAbi,
   getContractAddress,
   getProtocolVersion,
+  getReleaseChainId,
 } from '@/lib/contracts/registry';
+import { evaluateWriteTarget } from '@/lib/contracts/write-gate';
 
 interface UseDisputeSubmissionConfig {
   contractAddress?: string;
@@ -54,7 +56,7 @@ interface DisputeSubmissionResult {
 
 const OPTIMISM_MAINNET_CHAIN_ID = 10;
 const OPTIMISM_SEPOLIA_CHAIN_ID = 11155420;
-const EXPECTED_ARTIFACT_VERSION = 'v2.1.0';
+const EXPECTED_ARTIFACT_VERSION = '2.0.0';
 
 // Function selector for openDispute(bytes32 claimId, string reason, uint256 bond)
 const OPEN_DISPUTE_SELECTOR = '0x9a8a0592';
@@ -68,7 +70,7 @@ export function useDisputeSubmission(
   const contractAddress =
     config.contractAddress ?? getContractAddress('TruthBountyWeighted');
   const abi = config.abi ?? getContractAbi('TruthBountyWeighted');
-  const expectedChainId = config.expectedChainId ?? OPTIMISM_MAINNET_CHAIN_ID;
+  const expectedChainId = config.expectedChainId ?? getReleaseChainId();
   const artifactVersion = config.artifactVersion ?? getProtocolVersion();
 
   const { address: userAddress, isConnected } = useAccount();
@@ -155,6 +157,16 @@ export function useDisputeSubmission(
         );
       }
 
+      // Fail closed through the single validated release manifest before any signing path.
+      const writeTarget = evaluateWriteTarget({
+        activeChainId: currentChainId,
+        contractAddress,
+        expectedProtocolVersion: artifactVersion,
+      });
+      if (!writeTarget.ok) {
+        errors.push(...writeTarget.errors);
+      }
+
       // Check contract address valid
       const contractAddressValid =
         contractAddress.match(/^0x[a-fA-F0-9]{40}$/) !== null;
@@ -163,8 +175,8 @@ export function useDisputeSubmission(
       }
 
       // Check artifact version (in production, query from contract)
-      const artifactVersionValid = true; // In production: contract.version() === artifactVersion
-      if (!artifactVersionValid) {
+      const artifactVersionValid = writeTarget.ok;
+      if (!artifactVersionValid && writeTarget.errors.length === 0) {
         errors.push(`Contract version mismatch. Expected ${artifactVersion}`);
       }
 

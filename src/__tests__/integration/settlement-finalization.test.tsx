@@ -17,9 +17,9 @@ jest.mock('wagmi', () => ({
 }));
 
 describe('Settlement and Finalization Integration', () => {
-  const mockContractAddress = '0x742d35Cc6634C0532925a3b844Bc9e7595f0eB1E';
+  const mockContractAddress = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8';
   const mockUserAddress = '0x1234567890123456789012345678901234567890';
-  const OPTIMISM_MAINNET = 10;
+  const OPTIMISM_MAINNET = 11155420;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -27,7 +27,7 @@ describe('Settlement and Finalization Integration', () => {
       address: mockUserAddress,
       isConnected: true,
     });
-    (wagmi.useChainId as jest.Mock).mockReturnValue(OPTIMISM_MAINNET);
+    (wagmi.useChainId as jest.Mock).mockReturnValue(11155420);
   });
 
   describe('provisional settlement flow', () => {
@@ -37,6 +37,7 @@ describe('Settlement and Finalization Integration', () => {
         useSettlementDetection({
           claimId: 'claim-123',
           contractAddress: mockContractAddress,
+          expectedChainId: 11155420,
           pollInterval: 1000,
         })
       );
@@ -55,19 +56,27 @@ describe('Settlement and Finalization Integration', () => {
       );
 
       let settlementSubmission: any;
+      let submitError: Error | undefined;
       if (detectionResult.current.provisionalAction?.isCallable) {
         await act(async () => {
-          settlementSubmission = await submissionResult.current.submitSettlement(
-            detectionResult.current.provisionalAction!
-          );
+          try {
+            settlementSubmission = await submissionResult.current.submitSettlement(
+              detectionResult.current.provisionalAction!
+            );
+          } catch (e) {
+            submitError = e as Error;
+          }
         });
 
-        expect(settlementSubmission).toBeDefined();
-        expect(settlementSubmission?.status).toBe('pending');
-        expect(settlementSubmission?.type).toBe('SETTLE_PROVISIONAL');
+        // Fail closed: no wallet write path ⇒ never invent a pending settlement
+        expect(submitError).toBeDefined();
+        expect(submitError?.message).toMatch(/writeContract|synthetic/i);
+        expect(settlementSubmission).toBeUndefined();
+        expect(submissionResult.current.lastSubmission).toBeNull();
       }
 
-      // Step 3: Reconcile state after finality
+      // Step 3: Reconcile a real-shaped receipt (never derived from a fake hash)
+      const mockTxHash = '0x' + '11'.repeat(32);
       const mockReceipt = {
         status: 1,
         blockNumber: 100n,
@@ -86,17 +95,21 @@ describe('Settlement and Finalization Integration', () => {
         useStateReconciliation()
       );
 
-      if (settlementSubmission) {
-        let reconciliationOutcome: any;
-        await act(async () => {
-          reconciliationOutcome = await reconciliationResult.current.reconcile(
-            settlementSubmission
-          );
+      let reconciliationOutcome: any;
+      await act(async () => {
+        reconciliationOutcome = await reconciliationResult.current.reconcile({
+          transactionHash: mockTxHash,
+          from: mockUserAddress,
+          to: mockContractAddress,
+          status: 'pending',
+          type: 'SETTLE_PROVISIONAL',
+          claimId: 'claim-123',
+          timestamp: new Date().toISOString(),
         });
+      });
 
-        expect(reconciliationOutcome?.status).toBe('confirmed');
-        expect(reconciliationOutcome?.finalState).toBe('SETTLED');
-      }
+      expect(reconciliationOutcome?.status).toBe('confirmed');
+      expect(reconciliationOutcome?.finalState).toBe('SETTLED');
     });
 
     it('should handle rejected settlement action', async () => {
@@ -104,6 +117,7 @@ describe('Settlement and Finalization Integration', () => {
         useSettlementDetection({
           claimId: 'claim-123',
           contractAddress: mockContractAddress,
+          expectedChainId: 11155420,
         })
       );
 
@@ -227,6 +241,7 @@ describe('Settlement and Finalization Integration', () => {
         useSettlementDetection({
           claimId: 'claim-123',
           contractAddress: mockContractAddress,
+          expectedChainId: 11155420,
         })
       );
 
@@ -245,13 +260,20 @@ describe('Settlement and Finalization Integration', () => {
         );
 
         let submission: any;
+        let appealError: Error | undefined;
         await act(async () => {
-          submission = await submissionResult.current.submitSettlement(
-            detectionResult.current.appealAction!
-          );
+          try {
+            submission = await submissionResult.current.submitSettlement(
+              detectionResult.current.appealAction!
+            );
+          } catch (e) {
+            appealError = e as Error;
+          }
         });
 
-        expect(submission?.type).toBe('SETTLE_APPEAL');
+        // Fail closed — never invent SETTLE_APPEAL success without a wallet write
+        expect(appealError).toBeDefined();
+        expect(submission).toBeUndefined();
       }
     });
   });
@@ -262,6 +284,7 @@ describe('Settlement and Finalization Integration', () => {
         useFinalizationDetection({
           claimId: 'claim-123',
           contractAddress: mockContractAddress,
+          expectedChainId: 11155420,
         })
       );
 
@@ -280,21 +303,33 @@ describe('Settlement and Finalization Integration', () => {
         );
 
         let submission: any;
+        let finalizeError: Error | undefined;
         await act(async () => {
-          submission = await submissionResult.current.submitSettlement(
-            finalizationResult.current.finalizationAction!
-          );
+          try {
+            submission = await submissionResult.current.submitSettlement(
+              finalizationResult.current.finalizationAction!
+            );
+          } catch (e) {
+            finalizeError = e as Error;
+          }
         });
 
-        expect(submission?.type).toBe('FINALIZE');
+        // Fail closed — never invent FINALIZE success without a wallet write
+        expect(finalizeError).toBeDefined();
+        expect(submission).toBeUndefined();
       }
     });
 
     it('should prevent premature finalization', async () => {
+      // Mock requirements always satisfy finalization when the wallet/chain gate passes;
+      // block finalization by putting the wallet on an unsupported network (fail closed).
+      (wagmi.useChainId as jest.Mock).mockReturnValue(1);
+
       const { result: finalizationResult } = renderHook(() =>
         useFinalizationDetection({
           claimId: 'claim-123',
           contractAddress: mockContractAddress,
+          expectedChainId: 11155420,
         })
       );
 
@@ -302,10 +337,11 @@ describe('Settlement and Finalization Integration', () => {
         expect(finalizationResult.current.isLoading).toBe(false);
       });
 
-      // If finalization is not ready
-      if (!finalizationResult.current.finalizationAction?.isCallable) {
-        expect(finalizationResult.current.finalizationAction?.reason).toBeDefined();
-      }
+      expect(finalizationResult.current.validation?.isValid).toBe(false);
+      expect(finalizationResult.current.finalizationAction).toBeNull();
+      expect(finalizationResult.current.validation?.error).toMatch(
+        /wrong network/i,
+      );
     });
   });
 

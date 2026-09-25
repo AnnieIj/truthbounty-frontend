@@ -100,9 +100,11 @@ export function useTrustForAddress(address?: string): TrustInfo {
     });
   }
 
-  const trust = {
-    ...base,
+  const trust: TrustInfo = {
     isVerified: verification?.status === "SUCCESS",
+    reputation: base.reputation ?? 0,
+    accountAgeDays: base.accountAgeDays ?? 0,
+    suspicious: base.suspicious ?? false,
   };
 
   const overrideInfo =
@@ -111,7 +113,14 @@ export function useTrustForAddress(address?: string): TrustInfo {
       : null;
   void storageUpdateTrigger;
 
-  return overrideInfo ? { ...trust, ...overrideInfo } : trust;
+  if (!overrideInfo) return trust;
+
+  return {
+    isVerified: overrideInfo.isVerified ?? trust.isVerified,
+    reputation: overrideInfo.reputation ?? trust.reputation,
+    accountAgeDays: overrideInfo.accountAgeDays ?? trust.accountAgeDays,
+    suspicious: overrideInfo.suspicious ?? trust.suspicious,
+  };
 }
 
 /**
