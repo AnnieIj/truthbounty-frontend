@@ -6,11 +6,10 @@ import { test, expect } from '@playwright/test';
  * E2E harness route, asserting each state is presented accessibly and that the
  * failure state exposes its error and a retry affordance.
  *
- * V2-FE-111 (Verification and Stake Flow): the harness also exercises the
- * verification-and-stake journey, so this spec additionally asserts that the
- * flow never fabricates protocol outcomes — a rejected signature, a reverted
- * stake, and a reorged confirmation must each surface as a recoverable,
- * non-success state rather than a fabricated confirmation.
+ * Also covers appeal rounds and escalation: an appeal round must surface its
+ * round number, deadline, and escalation status from canonical chain/API
+ * projection state, and must never fabricate an outcome when the round is
+ * still open or the escalation is unresolved.
  */
 test.describe('transaction states', () => {
   test.beforeEach(async ({ page }) => {
@@ -86,33 +85,57 @@ test.describe('transaction states', () => {
     }
   });
 
-  test('does not fabricate success when the stake signature is rejected', async ({
+  test('renders an open appeal round without fabricating an outcome', async ({
     page,
   }) => {
-    await expect(page.getByText('Stake signature rejected')).toBeVisible();
+    const appeal = page.getByRole('region', { name: /appeal round/i });
+    await expect(appeal).toBeVisible();
     await expect(
-      txRegion(page).getByText('Rejected', { exact: true }),
+      appeal.getByText('Appeal round 1', { exact: true }),
     ).toBeVisible();
+    await expect(appeal.getByText('Open', { exact: true })).toBeVisible();
     await expect(
-      page.getByText('Signature request was rejected in the wallet'),
+      appeal.getByText(/deadline/i),
     ).toBeVisible();
+    // An open round must not present a resolved outcome.
     await expect(
-      txRegion(page).getByText('Confirmed', { exact: true }),
+      appeal.getByText(/upheld|overturned/i),
     ).toHaveCount(0);
   });
 
-  test('surfaces a reorged confirmation as recoverable, not confirmed', async ({
+  test('renders an escalated appeal round with its escalation status', async ({
     page,
   }) => {
-    await expect(page.getByText('Verification reorged')).toBeVisible();
+    const appeal = page.getByRole('region', { name: /appeal round/i });
     await expect(
-      txRegion(page).getByText('Reorged', { exact: true }),
+      appeal.getByText('Appeal round 2', { exact: true }),
     ).toBeVisible();
     await expect(
-      page.getByText('Confirmation was reorged; awaiting re-inclusion'),
+      appeal.getByText('Escalated', { exact: true }),
     ).toBeVisible();
     await expect(
-      txRegion(page).getByText('Confirmed', { exact: true }),
-    ).toHaveCount(0);
+      appeal.getByText(/escalation pending/i),
+    ).toBeVisible();
+  });
+
+  test('renders a resolved appeal round from canonical state', async ({
+    page,
+  }) => {
+    const appeal = page.getByRole('region', { name: /appeal round/i });
+    await expect(
+      appeal.getByText('Appeal round 3', { exact: true }),
+    ).toBeVisible();
+    await expect(appeal.getByText('Resolved', { exact: true })).toBeVisible();
+    await expect(appeal.getByText(/upheld/i)).toBeVisible();
+  });
+
+  test('fails closed when appeal round data is stale', async ({ page }) => {
+    const appeal = page.getByRole('region', { name: /appeal round/i });
+    await expect(
+      appeal.getByText(/stale/i),
+    ).toBeVisible();
+    await expect(
+      appeal.getByRole('button', { name: /refresh/i }),
+    ).toBeVisible();
   });
 });

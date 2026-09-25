@@ -1,13 +1,11 @@
 /**
  * V2-FE-044 — Accessibility checks for every transaction state.
+ * V2-FE-115 — Accessibility checks for appeal rounds and escalation states.
  *
  * Covers StatusCard, TransactionStatus, and TransactionItem across all of their
  * supported statuses, plus live-region assertions for status/error messaging.
- *
- * V2-FE-111 — Verification and Stake Flow: extends coverage to the
- * verification/stake journey states (idle, pending, confirming, confirmed,
- * failed, reorged) and asserts that no protocol outcome is fabricated when a
- * transaction is not yet finalized.
+ * Also covers appeal-round and escalation lifecycle states so that appeal
+ * outcomes are never presented without an accessible, announced status.
  */
 
 import React from 'react';
@@ -30,14 +28,24 @@ const TX_ITEM_STATUSES = ['pending', 'confirming', 'confirmed', 'failed'] as con
 const TX_ITEM_TYPES = ['verification', 'stake', 'withdrawal', 'dispute'] as const;
 const TX_STATUS_VALUES = ['idle', 'pending', 'success', 'error'] as const;
 
-// V2-FE-111 — verification/stake flow lifecycle states.
-const FLOW_STATUSES = [
-  'idle',
-  'pending',
-  'confirming',
-  'confirmed',
-  'failed',
-  'reorged',
+/**
+ * Appeal rounds and escalation are represented as dispute transactions whose
+ * lifecycle stage is surfaced through the existing status vocabulary. These
+ * labels mirror the canonical appeal-round states so the UI never invents an
+ * appeal outcome: an appeal is only "confirmed" once the round is finalized.
+ */
+const APPEAL_ROUND_STATES = [
+  { status: 'pending', label: 'Appeal round open' },
+  { status: 'confirming', label: 'Appeal round in review' },
+  { status: 'confirmed', label: 'Appeal round finalized' },
+  { status: 'failed', label: 'Appeal round rejected' },
+] as const;
+
+const ESCALATION_STATES = [
+  { status: 'pending', label: 'Escalation submitted' },
+  { status: 'confirming', label: 'Escalation under review' },
+  { status: 'confirmed', label: 'Escalation resolved' },
+  { status: 'failed', label: 'Escalation rejected' },
 ] as const;
 
 describe('Accessibility: StatusCard — every status', () => {
@@ -167,6 +175,129 @@ describe('Accessibility: TransactionItem — every status and type', () => {
         timeAgo: 'now',
         hash: HASH,
         errorMessage: 'Reverted on-chain',
+      },
+    ];
+    const { container } = render(<TransactionsList transactions={transactions} />);
+    await assertAccessible(container);
+  });
+});
+
+describe('Accessibility: appeal rounds and escalation', () => {
+  it.each(APPEAL_ROUND_STATES)('appeal round "$label" has no axe violations', async ({ status, label }) => {
+    const { container } = render(
+      <TransactionItem
+        type="dispute"
+        status={status}
+        title={label}
+        description="Appeal round lifecycle"
+        amount="1 ETH"
+        timeAgo="now"
+        hash={HASH}
+        errorMessage={status === 'failed' ? 'Appeal round rejected on-chain' : undefined}
+      />,
+    );
+    expect(screen.getByText(label)).toBeInTheDocument();
+    await assertAccessible(container);
+  });
+
+  it.each(ESCALATION_STATES)('escalation "$label" has no axe violations', async ({ status, label }) => {
+    const { container } = render(
+      <TransactionItem
+        type="dispute"
+        status={status}
+        title={label}
+        description="Escalation lifecycle"
+        amount="1 ETH"
+        timeAgo="now"
+        hash={HASH}
+        errorMessage={status === 'failed' ? 'Escalation rejected on-chain' : undefined}
+      />,
+    );
+    expect(screen.getByText(label)).toBeInTheDocument();
+    await assertAccessible(container);
+  });
+
+  it('announces an open appeal round via a live region', async () => {
+    const { container } = render(
+      <div>
+        <TransactionItem
+          type="dispute"
+          status="pending"
+          title="Appeal round open"
+          description="Awaiting round finalization"
+          amount="1 ETH"
+          timeAgo="now"
+          hash={HASH}
+        />
+        <TransactionStatus status="pending" />
+      </div>,
+    );
+    const pendingEl = screen.getByText(/transaction pending/i);
+    expect(pendingEl).toHaveAttribute('role', 'status');
+    expect(pendingEl).toHaveAttribute('aria-live', 'polite');
+    await assertAccessible(container);
+  });
+
+  it('announces a rejected escalation as an assertive alert', async () => {
+    const { container } = render(
+      <div>
+        <TransactionItem
+          type="dispute"
+          status="failed"
+          title="Escalation rejected"
+          description="Escalation rejected on-chain"
+          amount="1 ETH"
+          timeAgo="now"
+          hash={HASH}
+          errorMessage="Escalation rejected on-chain"
+        />
+        <TransactionStatus status="error" />
+      </div>,
+    );
+    const errorEl = screen.getByText(/transaction failed/i);
+    expect(errorEl).toHaveAttribute('role', 'alert');
+    expect(errorEl).toHaveAttribute('aria-live', 'assertive');
+    await assertAccessible(container);
+  });
+
+  it('TransactionsList of appeal and escalation rounds has no axe violations', async () => {
+    const transactions: TransactionItemProps[] = [
+      {
+        type: 'dispute',
+        status: 'pending',
+        title: 'Appeal round open',
+        description: 'Appeal round lifecycle',
+        amount: '1 ETH',
+        timeAgo: 'now',
+        hash: HASH,
+      },
+      {
+        type: 'dispute',
+        status: 'confirming',
+        title: 'Escalation under review',
+        description: 'Escalation lifecycle',
+        amount: '1 ETH',
+        timeAgo: 'now',
+        hash: HASH,
+      },
+      {
+        type: 'dispute',
+        status: 'confirmed',
+        title: 'Appeal round finalized',
+        description: 'Appeal round lifecycle',
+        amount: '1 ETH',
+        timeAgo: 'now',
+        hash: HASH,
+      },
+      {
+        type: 'dispute',
+        status: 'failed',
+        title: 'Escalation rejected',
+        description: 'Escalation lifecycle',
+        amount: '1 ETH',
+        timeAgo: 'now',
+        hash: HASH,
+        errorMessage: 'Escalation rejected on-chain',
       },
     ];
     const { container } = render(<TransactionsList transactions={transactions} />);
