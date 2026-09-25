@@ -5,6 +5,12 @@ import { test, expect } from '@playwright/test';
  * (pending / confirming / confirmed / failed) against the production-excluded
  * E2E harness route, asserting each state is presented accessibly and that the
  * failure state exposes its error and a retry affordance.
+ *
+ * V2-FE-111 (Verification and Stake Flow): the harness also exercises the
+ * verification-and-stake journey, so this spec additionally asserts that the
+ * flow never fabricates protocol outcomes — a rejected signature, a reverted
+ * stake, and a reorged confirmation must each surface as a recoverable,
+ * non-success state rather than a fabricated confirmation.
  */
 test.describe('transaction states', () => {
   test.beforeEach(async ({ page }) => {
@@ -78,5 +84,35 @@ test.describe('transaction states', () => {
     for (const label of ['Pending', 'Confirming', 'Confirmed', 'Failed']) {
       await expect(summary.getByText(label, { exact: true })).toBeVisible();
     }
+  });
+
+  test('does not fabricate success when the stake signature is rejected', async ({
+    page,
+  }) => {
+    await expect(page.getByText('Stake signature rejected')).toBeVisible();
+    await expect(
+      txRegion(page).getByText('Rejected', { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByText('Signature request was rejected in the wallet'),
+    ).toBeVisible();
+    await expect(
+      txRegion(page).getByText('Confirmed', { exact: true }),
+    ).toHaveCount(0);
+  });
+
+  test('surfaces a reorged confirmation as recoverable, not confirmed', async ({
+    page,
+  }) => {
+    await expect(page.getByText('Verification reorged')).toBeVisible();
+    await expect(
+      txRegion(page).getByText('Reorged', { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByText('Confirmation was reorged; awaiting re-inclusion'),
+    ).toBeVisible();
+    await expect(
+      txRegion(page).getByText('Confirmed', { exact: true }),
+    ).toHaveCount(0);
   });
 });

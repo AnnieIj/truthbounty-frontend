@@ -4,6 +4,12 @@ import { render, screen } from '@testing-library/react';
 import Sidebar from '../Sidebar';
 import { trackPendingTransaction } from '@/lib/pending-transactions';
 
+const push = jest.fn();
+
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({ push }),
+}));
+
 jest.mock('@/components/features/claim-submission', () => ({
   ClaimSubmissionForm: () => <div data-testid="claim-form" />,
 }));
@@ -39,5 +45,13 @@ describe('Sidebar', () => {
     render(<Sidebar />);
     expect(screen.getByTestId('sidebar-pending-transactions')).toHaveTextContent(/verification stake pending/i);
     expect(screen.getByText(/waiting for wallet confirmation/i)).toBeInTheDocument();
+  });
+
+  it('routes Submit Claim to the canonical claim creation page', () => {
+    render(<Sidebar />);
+
+    screen.getByRole('button', { name: /submit claim/i }).click();
+
+    expect(push).toHaveBeenCalledWith('/claims/new');
   });
 });
