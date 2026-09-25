@@ -5,6 +5,7 @@ import { useAccount } from '@/hooks/useAccount';
 import { useIsMounted } from '@/hooks/useIsMounted';
 import { useWallet, type WalletLifecycleState } from '@/hooks/useWallet';
 import { ConnectButton } from '@/components/ui/ConnectButton';
+import { useTranslations } from '@/i18n';
 import styles from './style.module.css';
 
 /**
@@ -34,6 +35,7 @@ export function describeWalletState(
 }
 
 export function WalletConnection() {
+  const t = useTranslations('wallet');
   const mounted = useIsMounted();
   const account = useAccount();
   const wallet = useWallet();
@@ -47,7 +49,7 @@ export function WalletConnection() {
     if (account?.address && typeof navigator !== 'undefined' && navigator.clipboard) {
       try {
         await navigator.clipboard.writeText(account.address);
-        setCopyStatus('Address copied to clipboard');
+        setCopyStatus(t('addressCopied'));
         setTimeout(() => setCopyStatus(''), 3000);
       } catch (error) {
         console.error('Failed to copy address:', error);
@@ -64,7 +66,7 @@ export function WalletConnection() {
             type="button"
             className={styles.card}
             onClick={handleCopyAddress}
-            aria-label={`Copy wallet address ${account.displayName}`}
+            aria-label={t('copyAddress', { address: account.displayName })}
           >
             {account.displayName}
           </button>
@@ -74,13 +76,13 @@ export function WalletConnection() {
             type="button"
             className={styles.disconnectButton}
             onClick={handleDisconnect}
-            aria-label="Disconnect wallet"
+            aria-label={t('disconnect')}
           >
-            Disconnect
+            {t('disconnect')}
           </button>
         </div>
       ) : (
-        <ConnectButton label="Connect Wallet" />
+        <ConnectButton label={t('connect')} />
       )}
 
       {/* Screen-reader feedback for copy + connection lifecycle status */}

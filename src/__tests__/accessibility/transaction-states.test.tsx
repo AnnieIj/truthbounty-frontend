@@ -185,6 +185,129 @@ describe('Accessibility: TransactionItem — every status and type', () => {
   });
 });
 
+describe('Accessibility: appeal rounds and escalation', () => {
+  it.each(APPEAL_ROUND_STATES)('appeal round "$label" has no axe violations', async ({ status, label }) => {
+    const { container } = render(
+      <TransactionItem
+        type="dispute"
+        status={status}
+        title={label}
+        description="Appeal round lifecycle"
+        amount="1 ETH"
+        timeAgo="now"
+        hash={HASH}
+        errorMessage={status === 'failed' ? 'Appeal round rejected on-chain' : undefined}
+      />,
+    );
+    expect(screen.getByText(label)).toBeInTheDocument();
+    await assertAccessible(container);
+  });
+
+  it.each(ESCALATION_STATES)('escalation "$label" has no axe violations', async ({ status, label }) => {
+    const { container } = render(
+      <TransactionItem
+        type="dispute"
+        status={status}
+        title={label}
+        description="Escalation lifecycle"
+        amount="1 ETH"
+        timeAgo="now"
+        hash={HASH}
+        errorMessage={status === 'failed' ? 'Escalation rejected on-chain' : undefined}
+      />,
+    );
+    expect(screen.getByText(label)).toBeInTheDocument();
+    await assertAccessible(container);
+  });
+
+  it('announces an open appeal round via a live region', async () => {
+    const { container } = render(
+      <div>
+        <TransactionItem
+          type="dispute"
+          status="pending"
+          title="Appeal round open"
+          description="Awaiting round finalization"
+          amount="1 ETH"
+          timeAgo="now"
+          hash={HASH}
+        />
+        <TransactionStatus status="pending" />
+      </div>,
+    );
+    const pendingEl = screen.getByText(/transaction pending/i);
+    expect(pendingEl).toHaveAttribute('role', 'status');
+    expect(pendingEl).toHaveAttribute('aria-live', 'polite');
+    await assertAccessible(container);
+  });
+
+  it('announces a rejected escalation as an assertive alert', async () => {
+    const { container } = render(
+      <div>
+        <TransactionItem
+          type="dispute"
+          status="failed"
+          title="Escalation rejected"
+          description="Escalation rejected on-chain"
+          amount="1 ETH"
+          timeAgo="now"
+          hash={HASH}
+          errorMessage="Escalation rejected on-chain"
+        />
+        <TransactionStatus status="error" />
+      </div>,
+    );
+    const errorEl = screen.getByText(/transaction failed/i);
+    expect(errorEl).toHaveAttribute('role', 'alert');
+    expect(errorEl).toHaveAttribute('aria-live', 'assertive');
+    await assertAccessible(container);
+  });
+
+  it('TransactionsList of appeal and escalation rounds has no axe violations', async () => {
+    const transactions: TransactionItemProps[] = [
+      {
+        type: 'dispute',
+        status: 'pending',
+        title: 'Appeal round open',
+        description: 'Appeal round lifecycle',
+        amount: '1 ETH',
+        timeAgo: 'now',
+        hash: HASH,
+      },
+      {
+        type: 'dispute',
+        status: 'confirming',
+        title: 'Escalation under review',
+        description: 'Escalation lifecycle',
+        amount: '1 ETH',
+        timeAgo: 'now',
+        hash: HASH,
+      },
+      {
+        type: 'dispute',
+        status: 'confirmed',
+        title: 'Appeal round finalized',
+        description: 'Appeal round lifecycle',
+        amount: '1 ETH',
+        timeAgo: 'now',
+        hash: HASH,
+      },
+      {
+        type: 'dispute',
+        status: 'failed',
+        title: 'Escalation rejected',
+        description: 'Escalation lifecycle',
+        amount: '1 ETH',
+        timeAgo: 'now',
+        hash: HASH,
+        errorMessage: 'Escalation rejected on-chain',
+      },
+    ];
+    const { container } = render(<TransactionsList transactions={transactions} />);
+    await assertAccessible(container);
+  });
+});
+
 describe('Accessibility: full lifecycle status matrix', () => {
   it('renders every StatusCard × TransactionItem status pair without violations', async () => {
     for (const cardStatus of STATUS_CARD_STATUSES) {

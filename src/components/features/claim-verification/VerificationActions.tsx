@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react';
 import { submitVerification } from '@/app/lib/api';
 import { TransactionStatus } from './TransactionStatus';
+import { useTranslations } from '@/i18n';
 import {
   clearPendingTransaction,
   trackPendingTransaction,
@@ -36,6 +37,8 @@ export function VerificationActions({
   /** Active wallet chain; defaults to the pinned release chain. */
   chainId?: number;
 }) {
+  const t = useTranslations('verification');
+  const tCommon = useTranslations('common');
   const resolvedChainId = chainId ?? getReleaseChainId();
   const [status, setStatus] = useState<'idle' | 'pending' | 'success' | 'error'>('idle');
   const [error, setError] = useState<string | null>(null);
@@ -44,6 +47,7 @@ export function VerificationActions({
     // Fail closed on invalid stake amount
     if (!stakeAmount || stakeAmount <= 0) {
       setStatus('error');
+      console.error(t('errors.stakeAmountInvalid'));
       setError('Invalid stake amount provided.');
       return;
     }
@@ -57,8 +61,8 @@ export function VerificationActions({
       trackPendingTransaction({
         id: transactionId,
         kind: 'verification',
-        title: decision === 'verify' ? 'Verification stake pending' : 'Rejection stake pending',
-        description: `Claim ${claimId} is waiting for wallet confirmation.`,
+        title: decision === 'verify' ? t('verificationStakePending') : t('rejectionStakePending'),
+        description: t('waitingWalletConfirmation', { claimId }),
         txHash: null,
         chainId: null,
         machineState: 'preparing',
@@ -78,6 +82,18 @@ export function VerificationActions({
   }, [claimId, stakeAmount]);
 
   return (
+    <div className="card flex flex-col sm:flex-row gap-3 sm:gap-4 p-4 sm:p-6">
+      <button
+        onClick={() => submit('verify')}
+        className="btn-primary flex-1 py-3 px-4 text-base min-h-[44px] touch-manipulation transition-colors"
+      >
+        {t('verify')}
+      </button>
+      <button
+        onClick={() => submit('reject')}
+        className="btn-danger flex-1 py-3 px-4 text-base min-h-[44px] touch-manipulation transition-colors"
+      >
+        {t('reject')}
     <div className="card flex flex-col sm:flex-row gap-3 sm:gap-4 p-4 sm:p-6" role="region" aria-label="Verification actions">
       <button
         onClick={() => submit('verify')}
