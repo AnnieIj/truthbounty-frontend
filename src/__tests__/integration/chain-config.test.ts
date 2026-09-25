@@ -156,11 +156,35 @@ describe('Chain Configuration System', () => {
     chains.forEach((chain) => {
       if (chain.contracts.truthBounty) {
         expect(chain.contracts.truthBounty).toMatch(/^0x[a-fA-F0-9]{40}$/);
+        expect(chain.contracts.truthBounty?.toLowerCase()).not.toBe(
+          '0x0000000000000000000000000000000000000000'
+        );
       }
       if (chain.contracts.token) {
         expect(chain.contracts.token).toMatch(/^0x[a-fA-F0-9]{40}$/);
       }
     });
+  });
+
+  test('no chain config ships a zero/placeholder truthBounty address', () => {
+    const chains = [OPTIMISM_MAINNET, OPTIMISM_SEPOLIA, BASE_MAINNET, ETHEREUM_MAINNET];
+
+    chains.forEach((chain) => {
+      expect(chain.contracts.truthBounty).not.toBe(
+        '0x0000000000000000000000000000000000000000'
+      );
+      if (chain.contracts.truthBounty) {
+        expect(chain.contracts.truthBounty).not.toMatch(/placeholder|dummy|yourcontract/i);
+      }
+    });
+  });
+
+  test('sepolia contract address is bound to the release manifest when deployed', () => {
+    if (OPTIMISM_SEPOLIA.contracts.truthBounty) {
+      expect(OPTIMISM_SEPOLIA.contracts.truthBounty).toBe(
+        '0x70997970C51812dc3A010C7d01b50e0d17dc79C8'
+      );
+    }
   });
 
   test('feature flags are consistent across chains', () => {

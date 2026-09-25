@@ -82,11 +82,16 @@ export function TransactionItem({
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-start gap-3 flex-1">
-          <span className={`text-2xl ${typeInfo.color}`}>{typeInfo.icon}</span>
+            <span className={`text-2xl ${typeInfo.color}`} aria-hidden="true">
+              {typeInfo.icon}
+            </span>
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1">
               <h3 className="font-semibold text-white">{title}</h3>
               <span
+                role="status"
+                aria-live="polite"
+                aria-atomic="true"
                 className={`text-xs px-2 py-1 rounded ${statusInfo.color} ${statusInfo.borderColor} border`}
               >
                 {statusInfo.label}
@@ -110,7 +115,12 @@ export function TransactionItem({
               style={{ width: `${progress}%` }}
             />
           </div>
-          <p className="text-xs text-slate-400 mt-2">
+          <p
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+            className="text-xs text-slate-400 mt-2"
+          >
             Confirmations: {progress}%
           </p>
         </div>
@@ -118,8 +128,15 @@ export function TransactionItem({
 
       {/* Error message */}
       {errorMessage && (
-        <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded flex items-start gap-2">
-          <span className="text-red-400 mt-0.5">⚠️</span>
+        <div
+          role="alert"
+          aria-live="assertive"
+          aria-atomic="true"
+          className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded flex items-start gap-2"
+        >
+          <span className="text-red-400 mt-0.5" aria-hidden="true">
+            ⚠️
+          </span>
           <p className="text-sm text-red-400 break-words">{errorMessage}</p>
         </div>
       )}

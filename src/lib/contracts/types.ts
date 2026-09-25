@@ -35,6 +35,12 @@ export interface ProtocolDiagnostics {
   gitCommit: string;
   artifactPath: string;
   verifiedAt: string;
+  /** ABI version from the release manifest (provenance, not a secret). */
+  abiVersion: string;
+  /** SHA-256 of the tracked ABI file from checksums.json (provenance). */
+  abiHash: string | null;
+  /** Build environment label only — never env vars or secrets. */
+  environment: 'production' | 'development';
   contracts: Record<string, string>;
 }
 

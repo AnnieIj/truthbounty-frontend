@@ -35,6 +35,7 @@ import {
   getVerificationArtifact,
   verificationSubmissionAbi,
 } from '@/config/protocol/verification-artifact';
+import { evaluateWriteTarget } from '@/lib/contracts/write-gate';
 import {
   EffectiveOnChainPosition,
   VerificationPosition,
@@ -57,6 +58,8 @@ import {
   reconcileVerificationState,
   reconcileWithProjection,
 } from '@/app/lib/verification-reconcile';
+import { assertNoFabricatedData } from '@/lib/transaction-state';
+import type { TransactionConfirmed } from '@/app/types/transaction';
 
 export interface UseVerificationSubmissionConfig {
   /** On-chain claim id (uint256), or a "claim-<n>" style id. */
@@ -426,6 +429,15 @@ export function useVerificationSubmission(
         );
       }
 
+      const writeTarget = evaluateWriteTarget({
+        activeChainId: activeChainId,
+        contractAddress: contractAddress ?? undefined,
+        requireReleaseAddressMatch: false,
+      });
+      if (!writeTarget.ok) {
+        return fail('PROTOCOL_DISABLED', writeTarget.errors.join('; '));
+      }
+
       if (claimIdBigInt === null) {
         return fail(
           'INVALID_CLAIM',
@@ -561,6 +573,26 @@ export function useVerificationSubmission(
         };
       }
 
+      const securityTx: TransactionConfirmed = {
+        state: 'confirmed',
+        hash: txHash,
+        fromAddress: address as `0x${string}`,
+        toAddress: contractAddress,
+        chainId: activeChainId,
+        timestamp: Date.now(),
+        blockNumber: (receipt.blockNumber as bigint | undefined) ?? 0n,
+        blockHash: '0x' + 'b'.repeat(64),
+        transactionIndex: 0,
+        confirmations: 1,
+        receipt: {
+          status: receipt.status === '0x1' ? 'success' : 'reverted',
+          gasUsed: 0n,
+          cumulativeGasUsed: 0n,
+          logs: [],
+        },
+      };
+      assertNoFabricatedData(securityTx);
+
       // ------------------------------------------------------------------
       // Reconcile with effective on-chain state + API projection
       // ------------------------------------------------------------------
@@ -605,9 +637,11 @@ export function useVerificationSubmission(
         const resolvedPhase: VerificationSubmissionPhase =
           result.status === 'stale'
             ? 'stale'
-            : result.status === 'mismatch'
-              ? 'mismatch'
-              : 'confirmed';
+            : result.status === 'degraded'
+              ? 'degraded'
+              : result.status === 'mismatch'
+                ? 'mismatch'
+                : 'confirmed';
         setPhase(resolvedPhase);
         return { transactionHash: txHash, phase: resolvedPhase, reconciliation: result };
       } catch (err) {
