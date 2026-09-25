@@ -1,0 +1,36 @@
+{
+  "version": "1.0.0-legacy",
+  "claims": [
+    {
+      "id": "legacy-1",
+      "title": "Legacy under-review alias",
+      "description": "Uses pre-v2 status alias IN_REVIEW \u2192 UNDER_REVIEW.",
+      "claimantAddress": "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
+      "status": "IN_REVIEW",
+      "bountyAmount": 0.5,
+      "totalStaked": 0.1,
+      "evidence": [],
+      "createdAt": "2025-01-01T00:00:00.000Z",
+      "updatedAt": "2025-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "legacy-2",
+      "title": "Unknown legacy status must fail closed",
+      "description": "Status QUEUED is not mappable \u2014 UI shows recovery, not a guess.",
+      "claimantAddress": "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65",
+      "status": "QUEUED",
+      "bountyAmount": 0.1,
+      "totalStaked": 0,
+      "evidence": [],
+      "createdAt": "2025-01-02T00:00:00.000Z",
+      "updatedAt": "2025-01-02T00:00:00.000Z"
+    }
+  ],
+  "errors": [
+    {
+      "code": "UNKNOWN",
+      "message": "Legacy catch-all."
+    }
+  ],
+  "settlements": []
+}

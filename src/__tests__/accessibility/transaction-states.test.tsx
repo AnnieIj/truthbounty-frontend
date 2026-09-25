@@ -339,3 +339,71 @@ describe('Accessibility: full lifecycle status matrix', () => {
     }
   });
 });
+
+describe('Accessibility: V2-FE-111 verification and stake flow states', () => {
+  it.each(FLOW_STATUSES)('flow state "%s" renders accessibly', async (status) => {
+    const { container } = render(
+      <div>
+        <TransactionItem
+          type="stake"
+          status={
+            status === 'idle'
+              ? 'pending'
+              : status === 'reorged'
+                ? 'failed'
+                : status
+          }
+          title="Verification stake"
+          description="Stake lifecycle"
+          amount="10"
+          timeAgo="now"
+          hash={HASH}
+          errorMessage={
+            status === 'failed'
+              ? 'Transaction reverted'
+              : status === 'reorged'
+                ? 'Chain reorg detected — awaiting reconfirmation'
+                : undefined
+          }
+        />
+      </div>,
+    );
+    await assertAccessible(container);
+  });
+
+  it('does not present success before finality is confirmed', async () => {
+    const { container } = render(
+      <TransactionItem
+        type="verification"
+        status="confirming"
+        title="Verification stake"
+        description="Awaiting confirmations"
+        amount="10"
+        timeAgo="now"
+        hash={HASH}
+      />,
+    );
+    // A confirming transaction must not surface a success/confirmed label.
+    expect(screen.queryByText(/confirmed/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/success/i)).not.toBeInTheDocument();
+    await assertAccessible(container);
+  });
+
+  it('reorged state is announced and recoverable', async () => {
+    const { container } = render(
+      <TransactionItem
+        type="stake"
+        status="failed"
+        title="Verification stake"
+        description="Reorg detected"
+        amount="10"
+        timeAgo="now"
+        hash={HASH}
+        errorMessage="Chain reorg detected — awaiting reconfirmation"
+        onRetry={() => undefined}
+      />,
+    );
+    expect(screen.getByText(/reorg/i)).toBeInTheDocument();
+    await assertAccessible(container);
+  });
+});

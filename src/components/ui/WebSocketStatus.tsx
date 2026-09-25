@@ -4,6 +4,7 @@
 
 import { useWebSocketStatus } from '@/components/providers/WebSocketProvider';
 import { Wifi, WifiOff, Loader2 } from 'lucide-react';
+import { useReducedMotion } from '@/components/hooks/useReducedMotion';
 
 interface WebSocketStatusProps {
   showLabel?: boolean;
@@ -64,6 +65,7 @@ export function WebSocketStatus({ showLabel = true, className = '' }: WebSocketS
  */
 export function WebSocketIndicator({ className = '' }: { className?: string }) {
   const { connectionState } = useWebSocketStatus();
+  const reducedMotion = useReducedMotion();
 
   const getColor = () => {
     switch (connectionState) {
@@ -71,7 +73,8 @@ export function WebSocketIndicator({ className = '' }: { className?: string }) {
         return 'bg-green-500';
       case 'connecting':
       case 'reconnecting':
-        return 'bg-amber-500 animate-pulse';
+        // Pulse animation is suppressed when the user prefers reduced motion.
+        return reducedMotion ? 'bg-amber-500' : 'bg-amber-500 animate-pulse';
       case 'disconnected':
       case 'error':
       default:

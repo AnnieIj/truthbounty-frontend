@@ -4,6 +4,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useWebSocketContext } from '@/components/providers/WebSocketProvider';
+import { useReducedMotion } from '@/components/hooks/useReducedMotion';
 import type {
   ClaimCreatedEvent,
   ClaimStatusChangedEvent,
@@ -21,6 +22,7 @@ interface ActivityItem {
 
 export function RealtimeActivityFeed() {
   const { subscribe, isConnected } = useWebSocketContext();
+  const reducedMotion = useReducedMotion();
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const feedRef = useRef<HTMLDivElement>(null);
 
@@ -150,8 +152,13 @@ export function RealtimeActivityFeed() {
         >
           <span
             className={`size-2 rounded-full ${
-              isConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'
+              isConnected
+                ? reducedMotion
+                  ? 'bg-green-500'
+                  : 'bg-green-500 animate-pulse'
+                : 'bg-gray-400'
             }`}
+            aria-hidden="true"
           />
           {isConnected ? 'Live' : 'Disconnected'}
         </span>

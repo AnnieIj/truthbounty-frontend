@@ -186,7 +186,16 @@ export function reconcileVerificationState(
     };
   }
 
-  if (projectionIncomplete && !receiptRejected && !chainMismatch && !claimMismatch && !versionMismatch && !positionMismatch && !projectionMismatch) {
+  if (
+    projectionIncomplete &&
+    (hasReceipt || hasOnChain) &&
+    !receiptRejected &&
+    !chainMismatch &&
+    !claimMismatch &&
+    !versionMismatch &&
+    !positionMismatch &&
+    !projectionMismatch
+  ) {
     details.push('projection data is incomplete; API response is degraded');
     return {
       status: 'degraded',

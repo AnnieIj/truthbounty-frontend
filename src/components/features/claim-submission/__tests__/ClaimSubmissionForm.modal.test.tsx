@@ -33,6 +33,10 @@ jest.mock('@/app/queries/claims.queries', () => ({
 jest.mock('wagmi', () => ({
   useConnectors: () => [{ id: 'injected', name: 'Injected', type: 'injected' }],
   useConnect: () => ({ connect: jest.fn() }),
+  useAccount: () => ({
+    address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+    chainId: 11155420,
+  }),
   useChainId: () => 11155420,
   usePublicClient: () => ({}),
   useReadContract: () => ({ data: undefined }),
