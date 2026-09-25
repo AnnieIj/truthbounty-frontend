@@ -1,83 +1,241 @@
+/**
+ * RewardsPage — V2 data-binding update (V2-FE-060)
+ *
+ * The previous version fetched `/api/rewards` directly and used
+ * `Number(amount)` float sums — both removed in V2-FE-060. This file tests
+ * the same user-visible behaviours (button enabled/disabled, rewards list)
+ * but via the canonical V2 hooks (useRewardEntitlements + useRewardClaim),
+ * plus the V2-FE-100 fail-closed write-readiness gate.
+ */
+
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
+import { formatUnits } from 'viem';
 
-const VALID_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
+// ---------------------------------------------------------------------------
+// Mock the canonical V2 hooks at the boundary
+// ---------------------------------------------------------------------------
 
-// Mutable so individual tests can flip chain without resetModules (avoids dual React).
-let mockChainId = 11155420;
+const ADDR = '0x1111111111111111111111111111111111111111' as `0x${string}`;
+const TOKEN = '0x4444444444444444444444444444444444444444' as `0x${string}`;
+const CLAIM_ID = `0x${'a'.repeat(64)}` as `0x${string}`;
+const RELEASE_CHAIN = 11155420;
 
 jest.mock('wagmi', () => ({
-  useAccount: () => ({ address: VALID_ADDRESS }),
-  useChainId: () => mockChainId,
-  useWriteContract: () => ({
-    data: null,
-    writeContract: jest.fn(),
-    isPending: false,
-  }),
-  useWaitForTransactionReceipt: () => ({ isSuccess: false }),
+  useAccount: () => ({ address: ADDR, isConnected: true }),
+  useChainId: () => RELEASE_CHAIN,
 }));
 
-jest.mock('viem', () => ({
-  createPublicClient: jest.fn(() => ({
-    readContract: jest.fn().mockResolvedValue(BigInt(0)),
-  })),
-  http: jest.fn(),
-  formatUnits: jest.fn(() => '0'),
+jest.mock('@/lib/contracts/registry', () => ({
+  getContractAddress: () => '0x3333333333333333333333333333333333333333',
+  getReleaseChainId: () => RELEASE_CHAIN,
 }));
 
-jest.mock('viem/chains', () => ({
-  optimismSepolia: {},
-  mainnet: {},
+jest.mock('@/lib/explorer', () => ({
+  getTransactionExplorerUrl: (hash: string) =>
+    `https://sepolia-optimism.etherscan.io/tx/${hash}`,
 }));
 
-describe('RewardsPage claim button state', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockChainId = 11155420;
-    (global.fetch as jest.Mock).mockResolvedValue({
-      json: jest.fn().mockResolvedValue([]),
-    });
+// Entitlements mock — starts returning an empty list; individual tests
+// override via direct mutation of entitlementsState.
+let entitlementsState = {
+  entitlements: [] as unknown[],
+  summary: { claimableByAsset: [], entitlements: [], hasClaimable: false },
+  isLoading: false,
+  isError: false,
+  error: null as string | null,
+  isUnsupported: false,
+  unsupportedReason: null as string | null,
+  refetch: jest.fn(),
+};
+
+jest.mock('@/hooks/useRewardEntitlements', () => ({
+  useRewardEntitlements: () => entitlementsState,
+}));
+
+const mockSubmitClaim = jest.fn();
+let claimState = {
+  submitClaim: mockSubmitClaim,
+  status: 'idle' as string,
+  txHash: null as `0x${string}` | null,
+  projection: null as unknown,
+  failure: null as { reason: string } | null,
+  isWritePending: false,
+  reset: jest.fn(),
+};
+
+jest.mock('@/hooks/useRewardClaim', () => ({
+  useRewardClaim: () => claimState,
+}));
+
+// V2-FE-100 write-readiness gate — ready by default; individual tests flip
+// isReady/message to assert fail-closed behaviour.
+let readinessState = {
+  isReady: true,
+  message: null as string | null,
+};
+
+jest.mock('@/hooks/useWriteReadiness', () => ({
+  useWriteReadiness: () => readinessState,
+}));
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function makeEntitlement(overrides: Record<string, unknown> = {}) {
+  return {
+    claimId: CLAIM_ID,
+    category: 'verification_reward' as const,
+    amount: 1_000_000_000_000_000_000n,
+    asset: TOKEN,
+    decimals: 18,
+    claimable: true,
+    ...overrides,
+  };
+}
+
+function resetStates() {
+  entitlementsState = {
+    entitlements: [],
+    summary: { claimableByAsset: [], entitlements: [], hasClaimable: false },
+    isLoading: false,
+    isError: false,
+    error: null,
+    isUnsupported: false,
+    unsupportedReason: null,
+    refetch: jest.fn(),
+  };
+  claimState = {
+    submitClaim: mockSubmitClaim,
+    status: 'idle',
+    txHash: null,
+    projection: null,
+    failure: null,
+    isWritePending: false,
+    reset: jest.fn(),
+  };
+  readinessState = {
+    isReady: true,
+    message: null,
+  };
+}
+
+async function renderPage() {
+  const RewardsPage = (await import('../RewardsPage')).default;
+  return render(<RewardsPage />);
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  resetStates();
+});
+
+describe('RewardsPage — V2 data binding', () => {
+  it('disables the claim button when there are no claimable rewards', async () => {
+    await renderPage();
+    const btn = screen.getByRole('button', { name: /claim rewards/i });
+    expect(btn).toBeDisabled();
+    expect(screen.getByText('No rewards available')).toBeInTheDocument();
   });
 
-  it('disables claim button when no rewards are available', async () => {
-    const RewardsPage = (await import('../RewardsPage')).default;
-    render(<RewardsPage />);
+  it('enables the claim button when claimable entitlements exist', async () => {
+    const entitlement = makeEntitlement();
+    entitlementsState.entitlements = [entitlement];
 
-    await waitFor(() =>
-      expect(global.fetch).toHaveBeenCalledWith(
-        `/api/rewards?user=${VALID_ADDRESS}`
-      )
+    await renderPage();
+    const btn = screen.getByRole('button', { name: /claim rewards/i });
+    expect(btn).not.toBeDisabled();
+  });
+
+  it('renders each entitlement with its formatted amount and explanation', async () => {
+    const entitlement = makeEntitlement();
+    entitlementsState.entitlements = [entitlement];
+
+    await renderPage();
+    const formattedAmount = formatUnits(entitlement.amount as bigint, 18);
+    expect(screen.getByText(new RegExp(formattedAmount))).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /Paid for casting a verification that matched the finalized outcome/i,
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('shows the loading state while entitlements are being fetched', async () => {
+    entitlementsState.isLoading = true;
+    await renderPage();
+    expect(screen.getByRole('status', { name: /loading/i })).toBeInTheDocument();
+  });
+
+  it('shows the error state and a retry button on fetch failure', async () => {
+    entitlementsState.isError = true;
+    entitlementsState.error = 'Failed to load claimable rewards.';
+    await renderPage();
+    expect(
+      screen.getByText('Failed to load claimable rewards.'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
+  });
+
+  it('shows the unsupported reason on wrong chain', async () => {
+    entitlementsState.isUnsupported = true;
+    entitlementsState.unsupportedReason =
+      'Wrong network. Switch to the protocol chain to view claimable rewards.';
+    await renderPage();
+    expect(
+      screen.getByText(/Wrong network\. Switch to the protocol chain/i),
+    ).toBeInTheDocument();
+  });
+
+  it('shows the confirmed projection with an explorer link', async () => {
+    const TX = `0x${'e'.repeat(64)}` as `0x${string}`;
+    claimState.projection = {
+      transactionHash: TX,
+      chainId: RELEASE_CHAIN,
+      blockNumber: 100n,
+      contractAddress: '0x3333333333333333333333333333333333333333',
+      receivedAssets: [{ asset: TOKEN, amount: 1_000_000_000_000_000_000n }],
+      settledClaimIds: [CLAIM_ID],
+      outstandingClaimIds: [],
+    };
+
+    await renderPage();
+    const link = screen.getByRole('link', { name: /view on explorer/i });
+    expect(link).toHaveAttribute(
+      'href',
+      `https://sepolia-optimism.etherscan.io/tx/${TX}`,
     );
-
-    expect(screen.getByRole('button', { name: /claim rewards/i })).toBeDisabled();
-    expect(screen.getByText(/no rewards available/i)).toBeInTheDocument();
   });
 
-  it('enables claim button when rewards are available and wallet is ready', async () => {
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
-      json: jest.fn().mockResolvedValue([{ amount: 10, reason: 'Stake bonus' }]),
-    });
-
-    const RewardsPage = (await import('../RewardsPage')).default;
-    render(<RewardsPage />);
-
-    await waitFor(() => expect(screen.getByText(/stake bonus/i)).toBeInTheDocument());
-    expect(screen.getByRole('button', { name: /claim rewards/i })).toBeEnabled();
+  it('shows the claim failure reason with a dismiss button', async () => {
+    claimState.failure = { reason: 'User rejected the request.' };
+    await renderPage();
+    expect(
+      screen.getByText('User rejected the request.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /dismiss/i }),
+    ).toBeInTheDocument();
   });
 
-  it('disables claim when the write readiness gate fails (wrong chain)', async () => {
-    (global.fetch as jest.Mock).mockResolvedValue({
-      json: jest.fn().mockResolvedValue([{ amount: 10, reason: 'Stake bonus' }]),
-    });
+  it('disables claim and surfaces the reason when the write readiness gate fails', async () => {
+    const entitlement = makeEntitlement();
+    entitlementsState.entitlements = [entitlement];
+    readinessState = {
+      isReady: false,
+      message: 'Wrong network. Switch to the protocol chain to claim.',
+    };
 
-    mockChainId = 999999;
-
-    const RewardsPage = (await import('../RewardsPage')).default;
-    render(<RewardsPage />);
-
-    await waitFor(() => expect(screen.getByText(/stake bonus/i)).toBeInTheDocument());
-    const button = screen.getByRole('button');
-    expect(button).toBeDisabled();
-    expect(screen.getByTestId('write-readiness-reason')).toBeInTheDocument();
+    await renderPage();
+    const btn = screen.getByRole('button', { name: /wrong network/i });
+    expect(btn).toBeDisabled();
+    expect(screen.getByTestId('write-readiness-reason')).toHaveTextContent(
+      /wrong network/i,
+    );
   });
 });
