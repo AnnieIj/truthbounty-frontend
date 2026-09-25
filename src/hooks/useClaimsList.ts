@@ -28,6 +28,7 @@ export interface UseClaimsListOptions {
   search?: string;
   status?: ClaimsListParams['filters']['status'];
   highImpact?: boolean;
+  sort?: ClaimsListParams['sort'];
   page?: number;
   pageSize?: number;
   /** How long a successful projection is displayed as fresh (ms). */
@@ -77,6 +78,7 @@ export function useClaimsList(options: UseClaimsListOptions = {}): ClaimsListSta
     highImpact,
     page = 1,
     pageSize = CLAIMS_LIST_DEFAULTS.pageSize,
+    sort = { field: 'createdAt', direction: 'desc' },
     staleAfterMs = CLAIMS_LIST_DEFAULTS.staleAfterMs,
     enabled = true,
   } = options;
@@ -85,7 +87,7 @@ export function useClaimsList(options: UseClaimsListOptions = {}): ClaimsListSta
     search,
     filters: { status, highImpact },
     pagination: { page, pageSize },
-    sort: { field: 'createdAt', direction: 'desc' },
+    sort,
   };
 
   const problems = validateClaimsListParams(params);
@@ -101,7 +103,7 @@ export function useClaimsList(options: UseClaimsListOptions = {}): ClaimsListSta
   const queryEnabled = enabled && problems.length === 0;
 
   const query: UseQueryResult<ClaimsListEnvelope, ClaimsListError> = useQuery({
-    queryKey: queryKeys.claims.list({ search, status: status ?? null, highImpact: highImpact ?? null, page, pageSize }),
+    queryKey: queryKeys.claims.list({ search, status: status ?? null, highImpact: highImpact ?? null, page, pageSize, sort }),
     queryFn: ({ signal }) => fetchClaimsList(params, signal),
     enabled: queryEnabled,
     // Paginated read path: keep the previous page rendered while the next
