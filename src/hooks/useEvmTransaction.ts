@@ -9,13 +9,11 @@
  *  - txHash is NEVER fabricated; only Wagmi-returned values are accepted
  *  - chainId validated against OPTIMISM_CHAIN_IDS before PREPARE
  *  - Wrong-network is detected and transitions to an explicit error state
- *  - Write readiness gate (V2-FE-100) runs before PREPARE; fail closed
- *  - Intent is invalidated when account or chain changes mid-flow
  *  - No Stellar/Freighter runtime dependencies
  *  - contract ABIs throw NotImplemented until V2-FE-003/005 are merged
  */
 
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import {
   useAccount,
   useChainId,
@@ -29,12 +27,6 @@ import {
   TransactionMachineError,
   isValidChain,
 } from '@/lib/transaction-machine/transaction-machine.types';
-import {
-  assertWriteReady,
-  evaluateWriteTarget,
-  mapGateFailureToMachineReason,
-  resolveCanonicalTargetAddress,
-} from '@/lib/contracts/write-gate';
 
 import {
   useTransactionMachine,
@@ -95,10 +87,6 @@ export interface UseEvmTransactionReturn {
   isCorrectNetwork: boolean;
   /** Connected wallet address, or undefined if disconnected. */
   address: `0x${string}` | undefined;
-  /** Latest write-gate evaluation (fail closed before any sign). */
-  readiness: ReturnType<typeof evaluateWriteTarget>;
-  /** True only when the write-gate reports ready. */
-  isWriteReady: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -138,42 +126,6 @@ export function useEvmTransaction(
     ...machineOpts,
     allowLocalDev,
   });
-
-  // V2-FE-100: fail-closed write readiness (chain, account, address)
-  // Uses canonical release target for UI readiness; write paths re-check params.address.
-  const readiness = evaluateWriteTarget({
-    account: address ?? null,
-    chainId,
-    expectedChainId,
-    targetAddress: resolveCanonicalTargetAddress(),
-    allowLocalDev,
-  });
-
-  // Intent invalidation: drop an in-flight intent if account/chain changes
-  // before a real hash exists (never fabricate continuity across wallets).
-  const intentRef = useRef<{
-    address: string | undefined;
-    chainId: number;
-    hasHash: boolean;
-  } | null>(null);
-
-  useEffect(() => {
-    const intent = intentRef.current;
-    if (!intent) return;
-    if (intent.hasHash) return; // submitted — receipt tracking owns the lifecycle
-
-    const accountChanged = intent.address !== address;
-    const chainChanged = intent.chainId !== chainId;
-    if (accountChanged || chainChanged) {
-      intentRef.current = null;
-      if (
-        state.status === 'preparing' ||
-        state.status === 'signature-requested'
-      ) {
-        send({ type: 'RESET' });
-      }
-    }
-  }, [address, chainId, state.status, send]);
 
   // Watch receipt for the current submitted/confirming hash
   const submittedHash =
@@ -226,36 +178,20 @@ export function useEvmTransaction(
 
   const writeContract = useCallback(
     async (params: WriteContractParams): Promise<void> => {
-      // V2-FE-100 readiness gate — fail closed before PREPARE
-      const gate = evaluateWriteTarget({
-        account: address ?? null,
-        chainId,
-        expectedChainId,
-        targetAddress: params.address,
-        allowLocalDev,
-      });
-      if (!gate.ready) {
-        const primary = gate.failures[0];
+      if (!isConnected || !address) {
         throw new TransactionMachineError(
-          primary ? mapGateFailureToMachineReason(primary) : 'INVALID_TRANSITION',
-          primary?.message ?? 'Write readiness could not be established',
+          'INVALID_TRANSITION',
+          'Wallet not connected',
         );
       }
 
-      // Extra invariant: assert (throws WriteGateError) for exhaustive codes
-      assertWriteReady({
-        account: address ?? null,
-        chainId,
-        expectedChainId,
-        targetAddress: params.address,
-        allowLocalDev,
-      });
-
-      intentRef.current = {
-        address: address ?? undefined,
-        chainId,
-        hasHash: false,
-      };
+      // Network guard
+      if (!isCorrectNetwork) {
+        throw new TransactionMachineError(
+          'WRONG_NETWORK',
+          `Connected to chain ${chainId}, expected ${expectedChainId}`,
+        );
+      }
 
       // Drive: idle → preparing
       send({ type: 'PREPARE', chainId });
@@ -273,14 +209,9 @@ export function useEvmTransaction(
           ...(params.value !== undefined ? { value: params.value } : {}),
         } as never);
 
-        if (intentRef.current) {
-          intentRef.current.hasHash = true;
-        }
-
         // Drive: signature-requested → submitted
         send({ type: 'SUBMIT', txHash });
       } catch (err: unknown) {
-        intentRef.current = null;
         const isUserRejection =
           err instanceof Error &&
           (err.message.includes('User rejected') ||
@@ -301,7 +232,6 @@ export function useEvmTransaction(
       isCorrectNetwork,
       chainId,
       expectedChainId,
-      allowLocalDev,
       send,
       writeContractAsync,
     ],
@@ -313,27 +243,19 @@ export function useEvmTransaction(
 
   const sendTransaction = useCallback(
     async (params: SendTransactionParams): Promise<void> => {
-      // V2-FE-100 readiness gate — fail closed before PREPARE
-      const gate = evaluateWriteTarget({
-        account: address ?? null,
-        chainId,
-        expectedChainId,
-        targetAddress: params.to,
-        allowLocalDev,
-      });
-      if (!gate.ready) {
-        const primary = gate.failures[0];
+      if (!isConnected || !address) {
         throw new TransactionMachineError(
-          primary ? mapGateFailureToMachineReason(primary) : 'INVALID_TRANSITION',
-          primary?.message ?? 'Write readiness could not be established',
+          'INVALID_TRANSITION',
+          'Wallet not connected',
         );
       }
 
-      intentRef.current = {
-        address: address ?? undefined,
-        chainId,
-        hasHash: false,
-      };
+      if (!isCorrectNetwork) {
+        throw new TransactionMachineError(
+          'WRONG_NETWORK',
+          `Connected to chain ${chainId}, expected ${expectedChainId}`,
+        );
+      }
 
       send({ type: 'PREPARE', chainId });
 
@@ -346,13 +268,8 @@ export function useEvmTransaction(
           data: params.data,
         });
 
-        if (intentRef.current) {
-          intentRef.current.hasHash = true;
-        }
-
         send({ type: 'SUBMIT', txHash });
       } catch (err: unknown) {
-        intentRef.current = null;
         const isUserRejection =
           err instanceof Error &&
           (err.message.includes('User rejected') ||
@@ -373,7 +290,6 @@ export function useEvmTransaction(
       isCorrectNetwork,
       chainId,
       expectedChainId,
-      allowLocalDev,
       send,
       sendTransactionAsync,
     ],
@@ -388,7 +304,5 @@ export function useEvmTransaction(
     sendTransaction,
     isCorrectNetwork,
     address,
-    readiness,
-    isWriteReady: readiness.ready,
   };
 }

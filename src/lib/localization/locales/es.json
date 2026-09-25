@@ -1,0 +1,32 @@
+{
+  "app": {
+    "title": "TruthBounty V2",
+    "loading": "Cargando...",
+    "error": "Ocurrió un error",
+    "retry": "Reintentar",
+    "no_wallet": "No se detectó billetera",
+    "wrong_chain": "Red incorrecta detectada. Por favor cambie a Optimism.",
+    "disconnected": "Billetera desconectada"
+  },
+  "common": {
+    "confirm": "Confirmar",
+    "cancel": "Cancelar",
+    "success": "Éxito",
+    "failed": "Fallido",
+    "pending": "Pendiente",
+    "accepted": "Aceptado",
+    "rejected": "Rechazado"
+  },
+  "wallet": {
+    "connect": "Conectar Billetera",
+    "disconnect": "Desconectar",
+    "switch_network": "Cambiar Red",
+    "account": "Cuenta",
+    "balance": "Saldo"
+  },
+  "locale": {
+    "switch": "Cambiar Idioma",
+    "en": "English",
+    "es": "Español"
+  }
+}
