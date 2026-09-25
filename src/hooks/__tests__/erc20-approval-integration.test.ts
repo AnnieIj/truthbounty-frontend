@@ -126,7 +126,7 @@ function setupWagmiMocks(config: {
 
   // Simulate receipt results across re-renders
   const receiptData = config.receiptResults ?? [null];
-  let receiptIdx = 0;
+  const receiptIdx = 0;
   mockedUseWaitForTransactionReceipt.mockImplementation(() => {
     const datum = receiptData[Math.min(receiptIdx, receiptData.length - 1)];
     return {

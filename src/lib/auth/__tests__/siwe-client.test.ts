@@ -193,6 +193,101 @@ describe('classifySiweHttpError', () => {
   it('falls back to NETWORK for unclassified statuses', () => {
     expect(classifySiweHttpError(500, {}).kind).toBe('NETWORK');
   });
+
+  // --- edge cases: null / undefined / unexpected body types ---
+
+  it('handles undefined body gracefully and falls back to generic message', () => {
+    const result = classifySiweHttpError(500);
+    expect(result.kind).toBe('NETWORK');
+    expect(result.message).toBe('SIWE request failed with HTTP 500.');
+    expect(result.code).toBeUndefined();
+  });
+
+  it('handles null body without crashing', () => {
+    const result = classifySiweHttpError(401, null);
+    expect(result.kind).toBe('UNAUTHORIZED');
+    expect(result.message).toBe('SIWE request failed with HTTP 401.');
+  });
+
+  it('handles a primitive string body without crashing', () => {
+    const result = classifySiweHttpError(400, 'some error string');
+    expect(result.kind).toBe('INVALID_MESSAGE');
+    expect(result.code).toBeUndefined();
+  });
+
+  it('handles a numeric body without crashing', () => {
+    const result = classifySiweHttpError(500, 42);
+    expect(result.kind).toBe('NETWORK');
+    expect(result.code).toBeUndefined();
+  });
+
+  it('handles an array body without crashing', () => {
+    const result = classifySiweHttpError(500, ['err']);
+    expect(result.kind).toBe('NETWORK');
+    expect(result.code).toBeUndefined();
+  });
+
+  // --- message extraction paths ---
+
+  it('uses body.message when present', () => {
+    const result = classifySiweHttpError(500, { message: 'something went wrong' });
+    expect(result.message).toBe('something went wrong');
+  });
+
+  it('uses body.error string as message when body.message is absent', () => {
+    const result = classifySiweHttpError(500, { error: 'flat error string' });
+    expect(result.message).toBe('flat error string');
+  });
+
+  it('uses nested body.error.message when present', () => {
+    const result = classifySiweHttpError(500, { error: { message: 'nested message' } });
+    expect(result.message).toBe('nested message');
+  });
+
+  it('falls back to generic message when body has no recognizable message field', () => {
+    const result = classifySiweHttpError(403, { unrelated: true });
+    expect(result.message).toBe('SIWE request failed with HTTP 403.');
+  });
+
+  // --- code extraction paths ---
+
+  it('extracts code from body.code', () => {
+    const result = classifySiweHttpError(500, { code: 'some_code' });
+    expect(result.code).toBe('some_code');
+  });
+
+  it('extracts code from body.error string', () => {
+    const result = classifySiweHttpError(500, { error: 'error_code' });
+    expect(result.code).toBe('error_code');
+  });
+
+  it('extracts code from nested body.error.code', () => {
+    const result = classifySiweHttpError(500, { error: { code: 'nested_code' } });
+    expect(result.code).toBe('nested_code');
+  });
+
+  // --- isExpiredCode patterns on 401 ---
+
+  it('classifies 401 with "expired" in the code as NONCE_EXPIRED', () => {
+    expect(classifySiweHttpError(401, { code: 'token_expired' }).kind).toBe('NONCE_EXPIRED');
+    expect(classifySiweHttpError(401, { code: 'session_timeout' }).kind).toBe('NONCE_EXPIRED');
+    expect(classifySiweHttpError(401, { code: 'stale_session' }).kind).toBe('NONCE_EXPIRED');
+  });
+
+  // --- 400 fallthrough to INVALID_MESSAGE ---
+
+  it('classifies 400 with no recognizable code as INVALID_MESSAGE', () => {
+    expect(classifySiweHttpError(400, { message: 'bad input' }).kind).toBe('INVALID_MESSAGE');
+    expect(classifySiweHttpError(400, {}).kind).toBe('INVALID_MESSAGE');
+  });
+
+  // --- other HTTP statuses → NETWORK ---
+
+  it('classifies 2xx non-ok statuses and other 4xx/5xx as NETWORK', () => {
+    expect(classifySiweHttpError(403, {}).kind).toBe('NETWORK');
+    expect(classifySiweHttpError(404, {}).kind).toBe('NETWORK');
+    expect(classifySiweHttpError(503, {}).kind).toBe('NETWORK');
+  });
 });
 
 describe('createSiweApiClient', () => {

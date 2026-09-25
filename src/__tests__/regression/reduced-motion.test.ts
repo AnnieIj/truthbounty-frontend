@@ -16,8 +16,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-const ROOT = path.resolve(__dirname, '../..');
-const SRC = path.join(ROOT, 'src');
+const SRC = path.resolve(__dirname, '../..')
 
 function read(rel: string): string {
   return fs.readFileSync(path.join(SRC, rel), 'utf8');

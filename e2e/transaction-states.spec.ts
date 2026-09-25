@@ -85,6 +85,36 @@ test.describe('transaction states', () => {
       await expect(summary.getByText(label, { exact: true })).toBeVisible();
     }
   });
+
+  test('does not fabricate success when the stake signature is rejected', async ({
+    page,
+  }) => {
+    await expect(page.getByText('Stake signature rejected')).toBeVisible();
+    await expect(
+      txRegion(page).getByText('Rejected', { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByText('Signature request was rejected in the wallet'),
+    ).toBeVisible();
+    await expect(
+      txRegion(page).getByText('Confirmed', { exact: true }),
+    ).toHaveCount(0);
+  });
+
+  test('surfaces a reorged confirmation as recoverable, not confirmed', async ({
+    page,
+  }) => {
+    await expect(page.getByText('Verification reorged')).toBeVisible();
+    await expect(
+      txRegion(page).getByText('Reorged', { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByText('Confirmation was reorged; awaiting re-inclusion'),
+    ).toBeVisible();
+    await expect(
+      txRegion(page).getByText('Confirmed', { exact: true }),
+    ).toHaveCount(0);
+  });
 });
 
 test.describe('confidence and verification outcomes', () => {

@@ -29,6 +29,22 @@ export function isSessionActive(
   return now < session.expiresAt;
 }
 
+/**
+ * Return true only when an active stored session belongs to the account the
+ * active wallet provider currently confirms. A session whose owner does not
+ * match — or a session with no provider account at all — is stale and must not
+ * be treated as authenticated.
+ */
+export function isSessionBoundToAccount(
+  session: SiweSession | null | undefined,
+  account: string | null | undefined,
+  now: number = Date.now(),
+): boolean {
+  if (!isSessionActive(session, now)) return false;
+  if (!account) return false;
+  return session.address.toLowerCase() === account.toLowerCase();
+}
+
 const SESSION_SCHEMA = {
   address: (v: unknown): v is string => typeof v === 'string',
   chainId: (v: unknown): v is number => typeof v === 'number',

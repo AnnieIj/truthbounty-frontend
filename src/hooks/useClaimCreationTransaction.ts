@@ -10,6 +10,7 @@ import {
   getAddress,
   parseAbi,
 } from 'viem';
+import { evaluateWriteTarget } from '@/lib/contracts/write-gate';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -23,10 +24,10 @@ export const SUPPORTED_ARTIFACT_VERSION = '0.1.0';
 export const SUPORTED_ARTIFACT_VERSION = SUPPORTED_ARTIFACT_VERSION;
 
 /**
- * Default chain id for Optimism mainnet. Consumers should pass the correct
- * expected chain when not defaulting to mainnet.
+ * Default chain id for the reviewed release (Optimism Sepolia in the pinned
+ * manifest). Consumers should pass the correct expected chain when not defaulting.
  */
-export const DEFAULT_EXPECTED_CHAIN_ID = 10;
+export const DEFAULT_EXPECTED_CHAIN_ID = 11155420;
 
 /**
  * Max byte length for content digest (32 bytes).
@@ -262,6 +263,15 @@ function validateParams(
     );
   }
 
+  const writeTarget = evaluateWriteTarget({
+    activeChainId: expectedChainId,
+    contractAddress: params.claimContractAddress,
+  });
+  if (!writeTarget.ok) {
+    const code = writeTarget.code === 'STALE_ARTIFACT' ? INVALID_ARTIFACT_VERSION : INVALID_ADDRESS;
+    throw new ClaimCreationError(code, writeTarget.errors.join('; '));
+  }
+
   validateApproval(params.approval);
 
   if (!Number.isInteger(expectedChainId) || expectedChainId <= 0) {
@@ -467,6 +477,26 @@ export function useClaimCreationTransaction() {
             { cause: indexError },
           );
         }
+
+        const securityTx: TransactionConfirmed = {
+          state: 'confirmed',
+          hash: writeHash,
+          fromAddress: account,
+          toAddress: claimContract,
+          chainId: expectedChainId,
+          timestamp: Date.now(),
+          blockNumber: receipt.blockNumber ?? 0n,
+          blockHash: receipt.blockHash ?? '0x' + '0'.repeat(64),
+          transactionIndex: receipt.transactionIndex ?? 0,
+          confirmations: Number(receipt.confirmations ?? 1n),
+          receipt: {
+            status: receipt.status === 'success' ? 'success' : 'reverted',
+            gasUsed: receipt.gasUsed ?? 0n,
+            cumulativeGasUsed: receipt.cumulativeGasUsed ?? 0n,
+            logs: [],
+          },
+        };
+        assertNoFabricatedData(securityTx);
 
         setStatus('success');
         return { status: 'success', txHash: writeHash, indexedClaim };
