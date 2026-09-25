@@ -209,6 +209,14 @@ export function shouldWaitForFinality(
     return true;
   }
 
+  // 5. Replaced txs must not surface as durable success until the
+  // replacement hash itself reaches finality.
+  // (Machine "replaced" is outside the domain Transaction union — check loosely.)
+  const looseState = (tx as { state?: string }).state;
+  if (looseState === 'replaced') {
+    return true;
+  }
+
   return false;
 }
 
