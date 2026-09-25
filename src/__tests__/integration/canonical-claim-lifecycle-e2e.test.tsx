@@ -93,14 +93,39 @@ jest.mock('@/app/lib/api', () => ({
   getClaimById: jest.fn(),
 }));
 
-jest.mock('@/lib/contracts/registry', () => ({
-  getContractAddress: jest.fn(() => '0x742D35Cc6634c0532925A3b844BC9E7595f0eB1e'),
-  getContractAbi: jest.fn(() => []),
-  getProtocolVersion: jest.fn(() => 'v2.1.0'),
-  getProtocolRelease: jest.fn(() => ({})),
-  getReleaseChainId: jest.fn(() => 11155420),
-  getProtocolDiagnostics: jest.fn(() => ({})),
-}));
+jest.mock('@/lib/contracts/registry', () => {
+  const address = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8';
+  const release = {
+    manifest: {
+      protocolVersion: 'v2.1.0',
+      releaseId: 'v2.1.0-op-sepolia',
+      gitCommit: '0000000000000000000000000000000000000000',
+      compilerVersion: 'foundry-0.2.0',
+      chainId: 11155420,
+      deploymentBlock: 0,
+      abiVersion: 'v2.1.0',
+      eventSchemaVersion: 'v2.1.0',
+      parameterSetVersion: 'v2.1.0',
+      contracts: {
+        TruthBountyWeighted: { proxy: address, implementation: address },
+      },
+    },
+    addresses: { chainId: 11155420, TruthBountyWeighted: address },
+    abis: { TruthBountyWeighted: [] },
+    events: { version: 'v2.1.0', events: [] },
+    parameters: {},
+    roles: {},
+    checksums: { version: '1', files: {} },
+  };
+  return {
+    getContractAddress: jest.fn(() => address),
+    getContractAbi: jest.fn(() => []),
+    getProtocolVersion: jest.fn(() => 'v2.1.0'),
+    getProtocolRelease: jest.fn(() => release),
+    getReleaseChainId: jest.fn(() => 11155420),
+    getProtocolDiagnostics: jest.fn(() => ({})),
+  };
+});
 
 jest.mock('@/config/protocol/verification-artifact', () => ({
   ARTIFACT_VERSION: 'iv-verification-submission@v1.0.0',
@@ -116,11 +141,25 @@ jest.mock('@/config/protocol/verification-artifact', () => ({
 }));
 
 const USER = '0x1234567890123456789012345678901234567890' as const;
-const CONTRACT = '0x742D35Cc6634c0532925A3b844BC9E7595f0eB1e' as const;
+const CONTRACT = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8' as const;
 const CLAIM_ID = 'claim-lifecycle-1';
-const OP_MAINNET = 10;
+const OP_MAINNET = 11155420;
 const TX_HASH =
   '0xaaaa1111bbbb2222cccc3333dddd4444eeee5555ffff6666aaaa7777bbbb8888' as const;
+
+const APPEAL_PARTICIPATION_ABI = [
+  {
+    type: 'function',
+    name: 'participateInAppeal',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'appealId', type: 'bytes32' },
+      { name: 'support', type: 'bool' },
+      { name: 'stakeAmount', type: 'uint256' },
+    ],
+    outputs: [],
+  },
+] as const;
 
 function createReceiptTx(
   overrides: Partial<Extract<Transaction, { state: 'confirmed' }>> = {},
@@ -551,7 +590,11 @@ describe('V2-FE-044 — Canonical claim lifecycle (happy path)', () => {
       const appealCtx = context.current.context!;
 
       const { result: participation } = renderHook(() =>
-        useAppealParticipation({ contractAddress: CONTRACT, expectedChainId: OP_MAINNET }),
+        useAppealParticipation({
+          contractAddress: CONTRACT,
+          expectedChainId: OP_MAINNET,
+          abi: APPEAL_PARTICIPATION_ABI,
+        }),
       );
 
       const validation = participation.current.validateParticipation(
