@@ -58,6 +58,9 @@ export function getProtocolDiagnostics(): ProtocolDiagnostics {
     gitCommit: loaded.manifest.gitCommit,
     artifactPath: 'release',
     verifiedAt: new Date().toISOString(),
+    abiVersion: loaded.manifest.abiVersion,
+    abiHash: loaded.checksums.files['abi/TruthBountyWeighted.json'] ?? null,
+    environment: process.env.NODE_ENV === 'production' ? 'production' : 'development',
     contracts: {
       TruthBountyWeighted: loaded.addresses.TruthBountyWeighted,
       ...Object.fromEntries(

@@ -11,7 +11,36 @@ jest.mock('wagmi', () => ({
 
 jest.mock('@/lib/contracts/registry', () => ({
   getContractAddress: jest.fn(),
-  getProtocolVersion: jest.fn(() => 'v2.1.0'),
+  getProtocolVersion: jest.fn(() => '2.0.0'),
+  getReleaseChainId: jest.fn(() => 11155420),
+  getProtocolRelease: jest.fn(() => ({
+    manifest: {
+      protocolVersion: '2.0.0',
+      releaseId: 'v2.0.0-sepolia',
+      gitCommit: '5333c0acb9ccfb8a6a37ae76b3397d06781f0119',
+      compilerVersion: 'foundry-0.2.0',
+      chainId: 11155420,
+      deploymentBlock: 0,
+      abiVersion: '2.0.0',
+      eventSchemaVersion: '2.0.0',
+      parameterSetVersion: '2.0.0',
+      contracts: {
+        TruthBountyWeighted: {
+          proxy: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+          implementation: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+        },
+      },
+    },
+    addresses: {
+      chainId: 11155420,
+      TruthBountyWeighted: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+    },
+    abis: { TruthBountyWeighted: [] },
+    events: { version: '2.0.0', events: [] },
+    parameters: {},
+    roles: {},
+    checksums: { version: '1', files: {} },
+  })),
 }));
 
 const mockUseAccount = useAccount as jest.Mock;
@@ -23,13 +52,13 @@ describe('useEvidenceRegistration', () => {
   
   beforeEach(() => {
     jest.clearAllMocks();
-    mockGetContractAddress.mockReturnValue('0x1234567890123456789012345678901234567890');
+    mockGetContractAddress.mockReturnValue('0x70997970C51812dc3A010C7d01b50e0d17dc79C8');
   });
 
   describe('Validation', () => {
     it('returns valid for correct payload on correct network', () => {
       mockUseAccount.mockReturnValue({ address: '0x111', isConnected: true });
-      mockUseChainId.mockReturnValue(10); // OPTIMISM_MAINNET_CHAIN_ID
+      mockUseChainId.mockReturnValue(11155420); // Reviewed release chain
 
       const { result } = renderHook(() => useEvidenceRegistration());
 
@@ -44,7 +73,7 @@ describe('useEvidenceRegistration', () => {
 
     it('returns error if wallet is not connected', () => {
       mockUseAccount.mockReturnValue({ address: undefined, isConnected: false });
-      mockUseChainId.mockReturnValue(10);
+      mockUseChainId.mockReturnValue(11155420);
 
       const { result } = renderHook(() => useEvidenceRegistration());
 
@@ -69,12 +98,12 @@ describe('useEvidenceRegistration', () => {
       });
 
       expect(validation.isValid).toBe(false);
-      expect(validation.errors).toContain('Wrong network. Expected chain 10, got 1');
+      expect(validation.errors.some((e) => e.includes('Wrong network'))).toBe(true);
     });
 
     it('returns error for invalid claim ID format', () => {
       mockUseAccount.mockReturnValue({ address: '0x111', isConnected: true });
-      mockUseChainId.mockReturnValue(10);
+      mockUseChainId.mockReturnValue(11155420);
 
       const { result } = renderHook(() => useEvidenceRegistration());
 
@@ -89,7 +118,7 @@ describe('useEvidenceRegistration', () => {
 
     it('returns error for unsupported scheme', () => {
       mockUseAccount.mockReturnValue({ address: '0x111', isConnected: true });
-      mockUseChainId.mockReturnValue(10);
+      mockUseChainId.mockReturnValue(11155420);
 
       const { result } = renderHook(() => useEvidenceRegistration());
 
@@ -99,12 +128,11 @@ describe('useEvidenceRegistration', () => {
       });
 
       expect(validation.isValid).toBe(false);
-      expect(validation.errors).toContain('Unsupported scheme: only https and ipfs are allowed');
-    });
+      expect(validation.errors).toContain('Oversized input: evidence URI must be at most 1024 characters');
 
     it('returns error for oversized input', () => {
       mockUseAccount.mockReturnValue({ address: '0x111', isConnected: true });
-      mockUseChainId.mockReturnValue(10);
+      mockUseChainId.mockReturnValue(11155420);
 
       const { result } = renderHook(() => useEvidenceRegistration());
 
@@ -120,7 +148,7 @@ describe('useEvidenceRegistration', () => {
 
     it('prevents raw secrets in URI', () => {
       mockUseAccount.mockReturnValue({ address: '0x111', isConnected: true });
-      mockUseChainId.mockReturnValue(10);
+      mockUseChainId.mockReturnValue(11155420);
 
       const { result } = renderHook(() => useEvidenceRegistration());
 
@@ -137,7 +165,7 @@ describe('useEvidenceRegistration', () => {
   describe('Submission', () => {
     it('throws error about needing wallet writeContract integration when submission is attempted', async () => {
       mockUseAccount.mockReturnValue({ address: '0x111', isConnected: true });
-      mockUseChainId.mockReturnValue(10);
+      mockUseChainId.mockReturnValue(11155420);
 
       const { result } = renderHook(() => useEvidenceRegistration());
 

@@ -1,0 +1,87 @@
+# ============================================================================
+# PR Security Review Guardian — Workflow Snippet
+# ============================================================================
+# This job enforces that PRs touching CODEOWNERS-sensitive paths (contracts,
+# wallet, security, transactions, protocol, release/) carry an APPROVED
+# review either from the @truthbounty/v2-maintainers team OR from a login
+# listed in the MAINTAINER_ALLOWLIST_LOGINS repo variable / secret.
+#
+# Integration notes:
+#   • MAINTAINER_ALLOWLIST_LOGINS must be exposed as an env var in the job
+#     (read from vars or secrets, comma-separated GitHub logins).
+#   • Team-based approvals require a real reviews API fetch (gh api /reviews)
+#     because the default PR event payload does not expand team membership.
+#   • For pull_request_target (runs in base repo context, safe for forks),
+#     the checkout MUST use ref: ${{ github.event.pull_request.head.sha }}
+#     so the script version matches the PR-under-test.
+# ============================================================================
+
+jobs:
+  pr-security-review:
+    name: Sensitive-path maintainer approval gate
+    runs-on: ubuntu-latest
+    # Use pull_request_target for fork-safe write-token contexts; otherwise pull_request is fine.
+    # on:
+    #   pull_request_target:
+    #     types: [opened, synchronize, reopened, ready_for_review, review_requested, submitted]
+    permissions:
+      pull-requests: read
+      contents: read
+    env:
+      MAINTAINER_ALLOWLIST_LOGINS: ${{ vars.MAINTAINER_ALLOWLIST_LOGINS || secrets.MAINTAINER_ALLOWLIST_LOGINS || '' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # For pull_request_target: pin to the PR head SHA so the guardian script
+          # being evaluated is the one from the PR (not an untrusted base-branch
+          # version). For plain pull_request this line may be omitted.
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      # ------------------------------------------------------------------
+      # Option A — use GitHub CLI to fetch real changed files + reviews
+      # (requires `gh` on the runner, which is the default on ubuntu-latest).
+      # ------------------------------------------------------------------
+      - name: Fetch PR changed files and reviews
+        id: pr-data
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          gh api \
+            -H "Accept: application/vnd.github+json" \
+            "repos/${REPO}/pulls/${PR_NUMBER}/files?per_page=100" \
+            --jq 'map(.filename) | join(",")' \
+            > /tmp/changed-files.txt
+
+          gh api \
+            -H "Accept: application/vnd.github+json" \
+            "repos/${REPO}/pulls/${PR_NUMBER}/reviews?per_page=100" \
+            > /tmp/reviews.json
+
+          echo "files=$(cat /tmp/changed-files.txt)" >> "$GITHUB_OUTPUT"
+          echo "reviews=/tmp/reviews.json" >> "$GITHUB_OUTPUT"
+
+      - name: Run PR guardian
+        run: |
+          node .github/scripts/pr-guardian.mjs \
+            --files '${{ steps.pr-data.outputs.files }}' \
+            --reviewsJson '${{ steps.pr-data.outputs.reviews }}' \
+            --reviewerTeam 'truthbounty/v2-maintainers'
+
+      # ------------------------------------------------------------------
+      # Option B — TODO: Plug real changed files via GitHub Actions context
+      # if you prefer not to use gh CLI. The default event payload does not
+      # always include files/reviews; prefer Option A or fetch explicitly.
+      #
+      # Example placeholder (replace with real data sources):
+      #   node .github/scripts/pr-guardian.mjs \
+      #     --files 'src/lib/contracts/x.ts,src/components/transactions/y.tsx' \
+      #     --reviewsJson './reviews.json'
+      # ------------------------------------------------------------------

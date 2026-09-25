@@ -1,0 +1,27 @@
+{
+  "version": "2.0.0",
+  "contract": "TruthBountyWeighted",
+  "requiredFunctions": [
+    "balanceOf",
+    "claimRewards",
+    "settleProvisional",
+    "settleAppeal",
+    "finalize"
+  ],
+  "mutationFunctions": [
+    "claimRewards",
+    "settleProvisional",
+    "settleAppeal",
+    "finalize"
+  ],
+  "requiredEvents": [
+    {
+      "name": "ClaimSettled",
+      "signature": "ClaimSettled(bytes32,address,uint256)"
+    },
+    {
+      "name": "RewardsClaimed",
+      "signature": "RewardsClaimed(address,uint256)"
+    }
+  ]
+}
