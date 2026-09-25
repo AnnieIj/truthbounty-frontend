@@ -38,6 +38,29 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  /* V2 semantic tokens (V2-FE-121) — mapped to Tailwind utilities.
+     Roles per docs/ux/DESIGN_SYSTEM.md: surfaces, text, action/focus,
+     feedback, transaction lifecycle, and lines/disabled. */
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-elevated: var(--elevated);
+  --color-ink: var(--ink);
+  --color-ink-secondary: var(--ink-secondary);
+  --color-ink-muted: var(--ink-muted);
+  --color-action: var(--action);
+  --color-action-hover: var(--action-hover);
+  --color-action-ink: var(--action-ink);
+  --color-focus: var(--focus);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-info: var(--info);
+  --color-pending: var(--pending);
+  --color-confirmed: var(--confirmed);
+  --color-finalized: var(--finalized);
+  --color-orphaned: var(--orphaned);
+  --color-divider: var(--divider);
+  --color-disabled: var(--disabled);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -108,6 +131,42 @@ a {
   --sidebar-ring: oklch(0.708 0 0);
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
+
+  /* V2 semantic colours — light theme (V2-FE-121).
+     Foreground tones are chosen to pass WCAG AA (>=4.5:1) on --surface. */
+  --canvas: oklch(0.985 0 0);
+  --surface: oklch(1 0 0);
+  --elevated: oklch(0.99 0 0);
+  --ink: oklch(0.205 0 0);
+  --ink-secondary: oklch(0.371 0 0);
+  --ink-muted: oklch(0.45 0 0);
+  --action: oklch(0.488 0.217 264.376);
+  --action-hover: oklch(0.42 0.2 264);
+  --action-ink: oklch(0.985 0 0);
+  --focus: oklch(0.488 0.217 264.376);
+  --success: oklch(0.45 0.14 145);
+  --warning: oklch(0.45 0.13 70);
+  --danger: oklch(0.47 0.2 25);
+  --info: oklch(0.47 0.13 235);
+  --pending: oklch(0.45 0.13 70);
+  --confirmed: oklch(0.47 0.13 235);
+  --finalized: oklch(0.45 0.14 145);
+  --orphaned: oklch(0.47 0.2 25);
+  --divider: oklch(0.9 0 0);
+  --disabled: oklch(0.708 0 0);
+
+  /* V2 type scale, touch target and layout tokens (V2-FE-121). */
+  --type-display: 2.25rem;
+  --type-title: 1.5rem;
+  --type-section: 1.25rem;
+  --type-body: 1rem;
+  --type-small: 0.875rem;
+  --type-label: 0.75rem;
+  --type-code: 0.875rem;
+  --type-data: 0.9375rem;
+  --touch-target: 44px;
+  --content-width: 72rem;
+  --gutter: 1rem;
 }
 
 .dark {
@@ -142,6 +201,29 @@ a {
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+
+  /* V2 semantic colours — dark theme (V2-FE-121).
+     Foreground tones are lightened to pass WCAG AA (>=4.5:1) on --surface. */
+  --canvas: oklch(0.145 0 0);
+  --surface: oklch(0.205 0 0);
+  --elevated: oklch(0.269 0 0);
+  --ink: oklch(0.985 0 0);
+  --ink-secondary: oklch(0.87 0 0);
+  --ink-muted: oklch(0.75 0 0);
+  --action: oklch(0.72 0.17 264);
+  --action-hover: oklch(0.78 0.16 264);
+  --action-ink: oklch(0.16 0 0);
+  --focus: oklch(0.78 0.16 264);
+  --success: oklch(0.8 0.15 145);
+  --warning: oklch(0.85 0.14 80);
+  --danger: oklch(0.78 0.17 22);
+  --info: oklch(0.8 0.13 235);
+  --pending: oklch(0.85 0.14 80);
+  --confirmed: oklch(0.8 0.13 235);
+  --finalized: oklch(0.8 0.15 145);
+  --orphaned: oklch(0.78 0.17 22);
+  --divider: oklch(1 0 0 / 12%);
+  --disabled: oklch(0.556 0 0);
 }
 
 @layer base {
@@ -238,15 +320,20 @@ a {
     background-color: rgba(239, 68, 68, 0.1);
   }
 
-  button:hover {
-    transform: scale(1.02);
-    transition: transform 0.2s ease;
+  @media (prefers-reduced-motion: no-preference) {
+    button:hover {
+      transform: scale(1.02);
+      transition: transform 0.2s ease;
+    }
+
+    input:focus, textarea:focus, select:focus, button:focus {
+      transform: scale(1.01);
+    }
   }
 
   input:focus, textarea:focus, select:focus, button:focus {
     outline: 2px solid #5b5bf6;
     outline-offset: 2px;
-    transform: scale(1.01);
   }
 
   a {
@@ -346,6 +433,9 @@ select:focus-visible,
 
 
 @media (prefers-reduced-motion: reduce) {
+  /* V2-FE-071 — Kill all non-essential animation at the OS preference level.
+     This block is the single source of truth for reduced motion; component-
+     level animation guards must not rely on JS-only suppression. */
   *,
   *::before,
   *::after {
@@ -355,15 +445,87 @@ select:focus-visible,
     scroll-behavior: auto !important;
   }
 
+  /* Explicit named-animation kill list (belt) — Tailwind's `animate-*`
+     utilities, the shimmer keyframes, and any future custom utilities.
+     animate-ping is included: pulsing/pinging dots are a flashing attention
+     cue that must never survive reduced motion (WCAG 2.3.1 / 2.2.2). */
+  .animate-ping,
   .animate-pulse,
   .animate-spin,
+  .animate-bounce,
+  .animate-ping,
   .animate-fadeIn,
   .animate-shimmer {
     animation: none !important;
   }
 
+  /* Prevent transform-based motion on interactive elements */
+  button:hover,
+  button:focus,
+  a:hover,
+  a:focus,
+  input:focus,
+  textarea:focus,
+  select:focus {
+    transform: none !important;
+  }
+
+  /* Smooth scrolling and scroll-driven motion are non-essential (brace). */
   html {
     scroll-behavior: auto;
+  }
+
+  /* Hover-driven transforms (scale/lift) are motion, not comprehension.
+     Disable them so hover feedback remains color/border-only. */
+  *:hover {
+    transform: none !important;
+  }
+  .group:hover .group-hover\:translate-x-1,
+  .group:hover .group-hover\:rotate-180 {
+    transform: none !important;
+  }
+}
+
+/* ─── High-contrast mode ──────────────────────────────────────────────────── */
+
+@media (prefers-contrast: more) {
+  :root {
+    --border: oklch(0.4 0 0);
+    --ring: oklch(0.2 0 0);
+    --muted-foreground: oklch(0.3 0 0);
+  }
+
+  .dark {
+    --border: oklch(0.7 0 0);
+    --ring: oklch(0.9 0 0);
+    --muted-foreground: oklch(0.75 0 0);
+  }
+
+  /* Strengthen all focus rings */
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible,
+  [tabindex]:focus-visible {
+    outline-width: 3px !important;
+    outline-offset: 3px !important;
+  }
+
+  /* Ensure skip link is clearly visible when focused */
+  .skip-link:focus {
+    outline: 3px solid currentColor;
+    outline-offset: 2px;
+  }
+
+  /* Skeleton elements should use a solid background rather than gradient shimmer */
+  .animate-shimmer {
+    background: oklch(0.4 0 0) !important;
+    animation: none !important;
+  }
+
+  .dark .animate-shimmer {
+    background: oklch(0.6 0 0) !important;
   }
 }
 
@@ -381,4 +543,56 @@ samp {
 pre {
   overflow-x: auto;
   white-space: pre;
+}
+
+/* V2 semantic primitives layer (V2-FE-121).
+   Type-scale and layout helpers bound to the design tokens above.
+   Colour is never the sole carrier of meaning: pair these with the
+   StatusBadge icon + label primitive. */
+@layer components {
+  .tb-data {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+  }
+
+  .tb-title {
+    font-size: var(--type-title);
+    line-height: 1.25;
+    font-weight: 700;
+  }
+
+  .tb-section {
+    font-size: var(--type-section);
+    line-height: 1.3;
+    font-weight: 600;
+  }
+
+  .tb-body {
+    font-size: var(--type-body);
+    line-height: 1.5;
+  }
+
+  .tb-small {
+    font-size: var(--type-small);
+    line-height: 1.45;
+  }
+
+  .tb-label {
+    font-size: var(--type-label);
+    line-height: 1.4;
+    letter-spacing: 0.02em;
+    font-weight: 600;
+  }
+
+  .tb-touch {
+    min-height: var(--touch-target);
+    min-width: var(--touch-target);
+  }
+
+  .tb-content {
+    width: 100%;
+    max-width: var(--content-width);
+    margin-inline: auto;
+    padding-inline: var(--gutter);
+  }
 }

@@ -240,6 +240,14 @@ export function resolveVerificationArtifact(
       reasons.push(`${label} address is not a valid EVM address`);
       return null;
     }
+    if (raw.toLowerCase() === '0x0000000000000000000000000000000000000000') {
+      reasons.push(`${label} address is a zero/placeholder address`);
+      return null;
+    }
+    if (/yourcontract|placeholder|dummy|mock|testaddress/i.test(raw)) {
+      reasons.push(`${label} address is a placeholder/dummy address`);
+      return null;
+    }
     return raw.toLowerCase() as `0x${string}`;
   };
 

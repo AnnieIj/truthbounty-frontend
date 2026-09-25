@@ -8,7 +8,7 @@
 
 import type { TransactionStatus } from '@/lib/transaction-machine/transaction-machine.types';
 
-export type PendingTransactionKind = 'verification' | 'rewards' | 'dispute';
+export type PendingTransactionKind = 'verification' | 'rewards' | 'dispute' | 'treasury';
 
 export interface PendingTransactionEntry {
   id: string;

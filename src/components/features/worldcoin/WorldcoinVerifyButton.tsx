@@ -235,21 +235,23 @@ export function WorldcoinVerifyButton({
       return;
     }
 
+    if (!onIDKitProof) {
+      setStatus('FAILED');
+      onVerificationComplete?.(false);
+      return;
+    }
+
     setStatus('IN_PROGRESS');
     onVerificationStart?.();
 
     try {
-      if (onIDKitProof) {
-        await onIDKitProof({
-          merkle_root: '0x123',
-          nullifier_hash: '0x456',
-          proof: '0x789',
-          verification_level: 'orb',
-          credential_uuids: [],
-        });
-      } else {
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-      }
+      await onIDKitProof({
+        merkle_root: '',
+        nullifier_hash: '',
+        proof: '',
+        verification_level: 'orb',
+        credential_uuids: [],
+      });
       setStatus('SUCCESS');
       onVerificationComplete?.(true);
     } catch (error) {
