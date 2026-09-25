@@ -99,7 +99,7 @@ export function useRealtimeData() {
       });
 
       // Invalidate related queries to refetch
-      queryClient.invalidateQueries({ queryKey: ['claims', payload.claimId] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.claims.detail(payload.claimId) });
     },
     [queryClient]
   );
@@ -114,7 +114,7 @@ export function useRealtimeData() {
 
       // Invalidate user verification queries
       queryClient.invalidateQueries({
-        queryKey: ['user', payload.verification.verifierAddress],
+        queryKey: queryKeys.user.profile(payload.verification.verifierAddress),
       });
     },
     [queryClient]
@@ -140,7 +140,7 @@ export function useRealtimeData() {
       });
 
       // Invalidate dispute queries
-      queryClient.invalidateQueries({ queryKey: ['disputes'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.disputes.all });
     },
     [queryClient]
   );

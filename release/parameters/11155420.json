@@ -2,5 +2,19 @@
   "chainId": 11155420,
   "minBondAmount": "1000000000000000000",
   "appealWindowSeconds": 604800,
-  "protocolFeeBps": 100
+  "protocolFeeBps": 100,
+  "reputationWeight": {
+    "source": "canonical",
+    "authority": "contract",
+    "explanation": "Reputation weight is derived from canonical on-chain reputation state and documented API projections. The UI must display only values returned by these sources and must never compute, estimate, or invent weights, formulas, or authority.",
+    "displayStates": [
+      "loading",
+      "empty",
+      "stale",
+      "rejected",
+      "failed",
+      "error"
+    ],
+    "failClosed": true
+  }
 }

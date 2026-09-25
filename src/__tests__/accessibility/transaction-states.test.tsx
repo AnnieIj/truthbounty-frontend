@@ -3,6 +3,11 @@
  *
  * Covers StatusCard, TransactionStatus, and TransactionItem across all of their
  * supported statuses, plus live-region assertions for status/error messaging.
+ *
+ * V2-FE-111 — Verification and Stake Flow: extends coverage to the
+ * verification/stake journey states (idle, pending, confirming, confirmed,
+ * failed, reorged) and asserts that no protocol outcome is fabricated when a
+ * transaction is not yet finalized.
  */
 
 import React from 'react';
@@ -24,6 +29,16 @@ const STATUS_CARD_STATUSES = ['pending', 'confirming', 'confirmed', 'failed'] as
 const TX_ITEM_STATUSES = ['pending', 'confirming', 'confirmed', 'failed'] as const;
 const TX_ITEM_TYPES = ['verification', 'stake', 'withdrawal', 'dispute'] as const;
 const TX_STATUS_VALUES = ['idle', 'pending', 'success', 'error'] as const;
+
+// V2-FE-111 — verification/stake flow lifecycle states.
+const FLOW_STATUSES = [
+  'idle',
+  'pending',
+  'confirming',
+  'confirmed',
+  'failed',
+  'reorged',
+] as const;
 
 describe('Accessibility: StatusCard — every status', () => {
   it.each(STATUS_CARD_STATUSES)('StatusCard "%s" has no axe violations', async (status) => {
@@ -191,5 +206,73 @@ describe('Accessibility: full lifecycle status matrix', () => {
         unmount();
       }
     }
+  });
+});
+
+describe('Accessibility: V2-FE-111 verification and stake flow states', () => {
+  it.each(FLOW_STATUSES)('flow state "%s" renders accessibly', async (status) => {
+    const { container } = render(
+      <div>
+        <TransactionItem
+          type="stake"
+          status={
+            status === 'idle'
+              ? 'pending'
+              : status === 'reorged'
+                ? 'failed'
+                : status
+          }
+          title="Verification stake"
+          description="Stake lifecycle"
+          amount="10"
+          timeAgo="now"
+          hash={HASH}
+          errorMessage={
+            status === 'failed'
+              ? 'Transaction reverted'
+              : status === 'reorged'
+                ? 'Chain reorg detected — awaiting reconfirmation'
+                : undefined
+          }
+        />
+      </div>,
+    );
+    await assertAccessible(container);
+  });
+
+  it('does not present success before finality is confirmed', async () => {
+    const { container } = render(
+      <TransactionItem
+        type="verification"
+        status="confirming"
+        title="Verification stake"
+        description="Awaiting confirmations"
+        amount="10"
+        timeAgo="now"
+        hash={HASH}
+      />,
+    );
+    // A confirming transaction must not surface a success/confirmed label.
+    expect(screen.queryByText(/confirmed/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/success/i)).not.toBeInTheDocument();
+    await assertAccessible(container);
+  });
+
+  it('reorged state is announced and recoverable', async () => {
+    const { container } = render(
+      <TransactionItem
+        type="stake"
+        status="failed"
+        title="Verification stake"
+        description="Reorg detected"
+        amount="10"
+        timeAgo="now"
+        hash={HASH}
+        errorMessage="Chain reorg detected — awaiting reconfirmation"
+        onRetry={() => undefined}
+      />,
+    );
+    expect(screen.getByText(/reorg/i)).toBeInTheDocument();
+    await assertAccessible(container);
   });
 });

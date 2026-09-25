@@ -19,7 +19,7 @@ import { renderHook, act, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider, useConnect, useDisconnect } from 'wagmi';
 import { http } from 'viem';
-import { optimism, optimismSepolia } from 'viem/chains';
+import { mainnet, optimism, optimismSepolia } from 'viem/chains';
 import { createConfig, mock } from 'wagmi';
 import { useWallet } from '@/hooks/useWallet';
 import { useAccount } from '@/hooks/useAccount';
@@ -39,6 +39,16 @@ const testConfig = createConfig({
   connectors: [mock({ accounts: [ADDR_A, ADDR_B] })],
 });
 
+// A provider whose default chain is NOT supported by the protocol.
+const unsupportedConfig = createConfig({
+  chains: [mainnet, optimismSepolia],
+  transports: {
+    [mainnet.id]: http(),
+    [optimismSepolia.id]: http(),
+  },
+  connectors: [mock({ accounts: [ADDR_A] })],
+});
+
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
 });
@@ -51,12 +61,21 @@ function Wrapper({ children }: { children: React.ReactNode }) {
   );
 }
 
+function UnsupportedWrapper({ children }: { children: React.ReactNode }) {
+  return (
+    <WagmiProvider config={unsupportedConfig} reconnectOnMount={false}>
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    </WagmiProvider>
+  );
+}
+
 beforeEach(async () => {
   localStorage.clear();
   queryClient.clear();
   try {
     const { disconnect } = require('@wagmi/core');
     await disconnect(testConfig);
+    await disconnect(unsupportedConfig);
   } catch {}
 });
 
@@ -64,6 +83,7 @@ afterEach(async () => {
   try {
     const { disconnect } = require('@wagmi/core');
     await disconnect(testConfig);
+    await disconnect(unsupportedConfig);
   } catch {}
 });
 
@@ -235,5 +255,46 @@ describe('Wallet lifecycle — no synthetic state', () => {
   it('useAccount never produces a fabricated address', () => {
     const { result } = renderHook(() => useAccount(), { wrapper: Wrapper });
     expect(result.current).toBeNull();
+  });
+});
+
+describe('Wallet lifecycle — deterministic reconnection (V2-FE-045)', () => {
+  it('drops a stale connector preference and stays disconnected', async () => {
+    localStorage.setItem('truthbounty:wallet:connector', 'connector-that-no-longer-exists');
+
+    const { result } = renderHook(() => useWallet(), { wrapper: Wrapper });
+
+    await waitFor(() =>
+      expect(localStorage.getItem('truthbounty:wallet:connector')).toBeNull(),
+    );
+    expect(result.current.isConnected).toBe(false);
+    expect(result.current.address).toBeUndefined();
+  });
+
+  it('does not reconnect from a preference while the provider is connected', async () => {
+    const connector = getMockConnector();
+    const { result } = renderHook(() => useWallet(), { wrapper: Wrapper });
+
+    act(() => result.current.connect(connector));
+    await waitFor(() => expect(result.current.isConnected).toBe(true));
+
+    // A corrupt/foreign preference must not override the active provider.
+    localStorage.setItem('truthbounty:wallet:connector', 'some-other-connector');
+    act(() => result.current.reconnect());
+
+    expect(result.current.isConnected).toBe(true);
+    expect(result.current.activeConnector?.id).toBe(connector.id);
+  });
+
+  it('fails closed when the provider confirms a connection on an unsupported chain', async () => {
+    const connector = unsupportedConfig.connectors[0];
+    const { result } = renderHook(() => useWallet(), { wrapper: UnsupportedWrapper });
+
+    act(() => result.current.connect(connector));
+
+    await waitFor(() => expect(result.current.state).toBe('unsupported-chain'));
+    expect(result.current.isConnected).toBe(false);
+    expect(result.current.unsupportedChain).toBe(true);
+    expect(result.current.address).toBeUndefined();
   });
 });

@@ -9,6 +9,7 @@ import { useWriteContract, useReadContract, usePublicClient, useChainId } from "
 import { keccak256, stringToHex, parseAbi } from "viem";
 import { useTranslations } from '@/i18n';
 import { useAccount } from "@/hooks/useAccount";
+import { useWriteReadiness } from "@/hooks/useWriteReadiness";
 
 const claimAbi = parseAbi([
   "function createClaim(bytes32 contentDigest, address bountyAsset, uint256 amount, bytes32 configHash) returns (uint256 claimId)",
@@ -164,6 +165,14 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
   const { connect, connectors } = useConnect();
   const isWalletConnected = !!account?.address;
 
+  // V2-FE-100: fail-closed wallet/chain readiness for claim submission.
+  // Expected chain comes from the release manifest (not the wallet's current chain).
+  const readiness = useWriteReadiness({
+    enabled: isWalletConnected,
+    accountOverride: account?.address ?? null,
+    chainIdOverride: account?.chainId ?? null,
+  });
+
   const { mutateAsync, isPending: isSubmittingApi } = useSubmitClaim?.() ?? { mutateAsync: undefined, isPending: false };
   const { submitClaim, isPending: isSubmittingTx } = useCreateClaimTransaction();
   const isPending = isSubmittingApi || isSubmittingTx;
@@ -275,6 +284,14 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
       return;
     }
 
+    // V2-FE-100: fail closed when chain/account readiness is not established
+    if (!readiness.isReady) {
+      setSubmitError(
+        readiness.message || "Wallet is not ready to submit this claim."
+      );
+      return;
+    }
+
     if (!validate()) return;
 
     try {
@@ -353,7 +370,9 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
     ? t('submittingClaim')
     : submitError
       ? submitError
-      : "";
+      : !readiness.isReady && readiness.message
+        ? readiness.message
+        : "";
 
   const formValues: Record<StringFormField, string> = {
     title,
@@ -361,6 +380,13 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
     impact,
     source,
   };
+
+  const canSubmit = isWalletConnected && readiness.isReady;
+  const submitDisabledLabel = !isWalletConnected
+    ? "Connect wallet to submit"
+    : !readiness.isReady
+      ? readiness.message || "Wallet not ready"
+      : "Submit claim";
 
   return (
     <div
@@ -410,6 +436,16 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
         {lowTrust && (
           <div className="bg-yellow-500 text-black px-2 py-2 rounded text-sm">
             {t('trust.lowTrustWarning')} <TrustScoreTooltip />
+          </div>
+        )}
+
+        {isWalletConnected && !readiness.isReady && readiness.message && (
+          <div
+            data-testid="write-readiness-reason"
+            role="status"
+            className="bg-[#2a1d05] border border-yellow-600/50 text-yellow-200 px-3 py-2 rounded-lg text-sm"
+          >
+            {readiness.message}
           </div>
         )}
 
@@ -475,12 +511,29 @@ const ClaimSubmissionForm: React.FC<ClaimFormProps> = ({ onSubmit, onClose }) =>
             className="btn btn-primary flex-1 disabled:opacity-50"
             disabled={isPending || !isWalletConnected}
             aria-label={isPending ? t('submittingClaim') : !isWalletConnected ? tWallet('connectToSubmit') : t('submitClaim')}
+            disabled={isPending || !canSubmit}
+            aria-label={
+              isPending
+                ? "Submitting claim"
+                : !canSubmit
+                  ? submitDisabledLabel
+                  : "Submit claim"
+            }
+            aria-describedby={
+              isWalletConnected && !readiness.isReady
+                ? "write-readiness-reason"
+                : undefined
+            }
           >
             {isPending
               ? t('submittingClaim')
               : !isWalletConnected
                 ? tWallet('connectToSubmit')
                 : t('submitClaim')}
+                ? "Connect your wallet to submit"
+                : !readiness.isReady
+                  ? readiness.message || "Wallet not ready"
+                  : "Submit Claim"}
           </button>
         </div>
       </form>

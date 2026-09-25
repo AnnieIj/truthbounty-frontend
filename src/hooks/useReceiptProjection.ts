@@ -6,7 +6,6 @@ export type ReceiptProjectionStatus =
   | 'confirmed'
   | 'rejected'
   | 'stale'
-  | 'degraded'
   | 'mismatch';
 
 export interface ReceiptLike {
@@ -56,6 +55,7 @@ export function useReceiptProjection(options: UseReceiptProjectionOptions) {
     } = options;
     const artifactVersion = providedArtifactVersion ?? getProtocolVersion();
 
+    // Fail closed: if no authoritative data is present, remain idle.
     if (!txHash && !receipt && !projection) {
       return {
         status: 'idle' as ReceiptProjectionStatus,
@@ -73,56 +73,43 @@ export function useReceiptProjection(options: UseReceiptProjectionOptions) {
     const receiptStatus = normalizeStatus(receipt?.status);
     const projectionStatus = normalizeStatus(projection?.status);
 
+    // Validate chain consistency
     const chainMismatch =
       typeof expectedChain === 'number' &&
       ((typeof receiptChain === 'number' && receiptChain !== expectedChain) ||
         (typeof projectionChain === 'number' && projectionChain !== expectedChain));
 
+    // Validate contract address consistency
     const contractMismatch =
       typeof contractAddress === 'string' &&
       typeof receipt?.to === 'string' &&
       receipt.to.toLowerCase() !== contractAddress.toLowerCase();
 
+    // Validate claim ID consistency
     const claimMismatch =
       typeof claimId === 'string' &&
       typeof projection?.claimId === 'string' &&
       projection.claimId !== claimId;
 
+    // Validate artifact version consistency
     const versionMismatch =
       typeof artifactVersion === 'string' &&
       typeof projection?.artifactVersion === 'string' &&
       projection.artifactVersion !== artifactVersion;
 
+    // Validate transaction hash consistency
     const hashMismatch =
       typeof receiptHash === 'string' &&
       typeof txHash === 'string' &&
       receiptHash.toLowerCase() !== txHash.toLowerCase();
 
-    // Projection must agree with the receipt hash (API lag / reorg guard).
-    const projectionReceiptHashMismatch =
-      typeof projectionHash === 'string' &&
-      typeof receiptHash === 'string' &&
-      projectionHash.toLowerCase() !== receiptHash.toLowerCase();
-
     const hasReceipt = Boolean(receipt);
     const hasProjection = Boolean(projection);
     const receiptConfirmed = receiptStatus === '0x1' || receiptStatus === 'confirmed' || receiptStatus === 'success';
     const receiptRejected = receiptStatus === '0x0' || receiptStatus === 'reverted' || receiptStatus === 'failed';
-    const projectionIncomplete =
-      hasProjection &&
-      (!projection?.status ||
-        !projection?.txHash ||
-        !projection?.claimId ||
-        typeof projection?.chainId !== 'number');
 
-    if (
-      chainMismatch ||
-      contractMismatch ||
-      claimMismatch ||
-      versionMismatch ||
-      hashMismatch ||
-      projectionReceiptHashMismatch
-    ) {
+    // If any validation fails, fail closed with mismatch
+    if (chainMismatch || contractMismatch || claimMismatch || versionMismatch || hashMismatch) {
       return {
         status: 'mismatch' as ReceiptProjectionStatus,
         isMismatch: true,
@@ -131,6 +118,7 @@ export function useReceiptProjection(options: UseReceiptProjectionOptions) {
       };
     }
 
+    // If receipt indicates failure, mark as rejected
     if (receiptRejected) {
       return {
         status: 'rejected' as ReceiptProjectionStatus,
@@ -140,6 +128,7 @@ export function useReceiptProjection(options: UseReceiptProjectionOptions) {
       };
     }
 
+    // If we have a projection but no receipt, it's stale (waiting for on-chain confirmation)
     if (hasProjection && !hasReceipt) {
       return {
         status: 'stale' as ReceiptProjectionStatus,
@@ -149,6 +138,7 @@ export function useReceiptProjection(options: UseReceiptProjectionOptions) {
       };
     }
 
+    // If we have a receipt but no projection, it's confirmed (awaiting API sync)
     if (hasReceipt && !hasProjection) {
       return {
         status: 'confirmed' as ReceiptProjectionStatus,
@@ -158,42 +148,40 @@ export function useReceiptProjection(options: UseReceiptProjectionOptions) {
       };
     }
 
-    if (projectionIncomplete && !chainMismatch && !contractMismatch && !claimMismatch && !versionMismatch && !hashMismatch) {
-      return {
-        status: 'degraded' as ReceiptProjectionStatus,
-        isMismatch: false,
-        isWrongNetwork: false,
-        isProtocolDisabled: false,
-      };
+    // If both exist, ensure they align
+    if (hasReceipt && hasProjection) {
+      // If receipt is confirmed but projection is not, it's a mismatch/stale state
+      if (receiptConfirmed && projectionStatus !== 'confirmed') {
+        return {
+          status: 'stale' as ReceiptProjectionStatus,
+          isMismatch: true,
+          isWrongNetwork: false,
+          isProtocolDisabled: true,
+        };
+      }
+
+      // If hashes differ, it's a mismatch
+      if (projectionHash && receiptHash && projectionHash.toLowerCase() !== receiptHash.toLowerCase()) {
+        return {
+          status: 'mismatch' as ReceiptProjectionStatus,
+          isMismatch: true,
+          isWrongNetwork: false,
+          isProtocolDisabled: true,
+        };
+      }
+
+      // If both are confirmed and aligned
+      if (receiptConfirmed && projectionStatus === 'confirmed') {
+        return {
+          status: 'confirmed' as ReceiptProjectionStatus,
+          isMismatch: false,
+          isWrongNetwork: false,
+          isProtocolDisabled: false,
+        };
+      }
     }
 
-    if (hasReceipt && hasProjection && !receiptConfirmed && projectionStatus !== 'confirmed') {
-      return {
-        status: 'stale' as ReceiptProjectionStatus,
-        isMismatch: false,
-        isWrongNetwork: false,
-        isProtocolDisabled: false,
-      };
-    }
-
-    if (hasReceipt && hasProjection && receiptConfirmed && projectionStatus === 'confirmed') {
-      return {
-        status: 'confirmed' as ReceiptProjectionStatus,
-        isMismatch: false,
-        isWrongNetwork: false,
-        isProtocolDisabled: false,
-      };
-    }
-
-    if (hasReceipt && hasProjection && projectionHash && receiptHash && projectionHash.toLowerCase() !== receiptHash.toLowerCase()) {
-      return {
-        status: 'mismatch' as ReceiptProjectionStatus,
-        isMismatch: true,
-        isWrongNetwork: false,
-        isProtocolDisabled: true,
-      };
-    }
-
+    // Default fallback
     return {
       status: 'idle' as ReceiptProjectionStatus,
       isMismatch: false,

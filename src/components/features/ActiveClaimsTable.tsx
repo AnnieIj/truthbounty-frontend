@@ -1,9 +1,14 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ActiveClaimsTableSkeleton } from "@/components/skeletons";
 import { getCategoryIcon } from "@/lib/category-icons";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useClaimsList } from "@/hooks/useClaimsList";
-import { CLAIMS_LIST_DEFAULTS } from "@/app/types/claim-list";
+import { CLAIMS_LIST_DEFAULTS, type ClaimsListSort } from "@/app/types/claim-list";
+import {
+  buildClaimListUrlSearch,
+  parseClaimListUrl,
+} from "@/app/lib/claim-list-url";
 import type { ClaimStatus } from "@/app/types/claim";
 import {
   formatRelativeAge,
@@ -65,9 +70,19 @@ function formatUSD(amount: number): string {
 }
 
 const ActiveClaimsTable = ({ isLoading = false }: ActiveClaimsTableProps) => {
-  const [searchInput, setSearchInput] = useState("");
-  const [activeChip, setActiveChip] = useState(0);
-  const [highImpactOnly, setHighImpactOnly] = useState(false);
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const initialUrlState = useMemo(
+    () => parseClaimListUrl(new URLSearchParams(searchParams.toString())),
+    [searchParams]
+  );
+  const [searchInput, setSearchInput] = useState(initialUrlState.search);
+  const [activeChip, setActiveChip] = useState(
+    Math.max(0, FILTER_CHIPS.findIndex((filter) => filter.status === initialUrlState.status))
+  );
+  const [highImpactOnly, setHighImpactOnly] = useState(initialUrlState.highImpact);
+  const [sort, setSort] = useState<ClaimsListSort>(initialUrlState.sort);
   const [page, setPage] = useState(1);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -79,7 +94,21 @@ const ActiveClaimsTable = ({ isLoading = false }: ActiveClaimsTableProps) => {
   // Any change to the query shape invalidates the current page.
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, activeChip, highImpactOnly]);
+  }, [debouncedSearch, activeChip, highImpactOnly, sort]);
+
+  useEffect(() => {
+    const chip = FILTER_CHIPS[activeChip] ?? FILTER_CHIPS[0];
+    const next = buildClaimListUrlSearch({
+      search: debouncedSearch,
+      status: chip.status,
+      highImpact: highImpactOnly || Boolean(chip.highImpact),
+      sort,
+    });
+    const current = searchParams.toString();
+    if (next !== current) {
+      router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false });
+    }
+  }, [activeChip, debouncedSearch, highImpactOnly, pathname, router, searchParams, sort]);
 
   const chip = FILTER_CHIPS[activeChip] ?? FILTER_CHIPS[0];
   const claims = useClaimsList({
@@ -88,6 +117,7 @@ const ActiveClaimsTable = ({ isLoading = false }: ActiveClaimsTableProps) => {
     highImpact: highImpactOnly || chip.highImpact,
     page,
     pageSize: CLAIMS_LIST_DEFAULTS.pageSize,
+    sort,
   });
 
   const envelope = claims.data;

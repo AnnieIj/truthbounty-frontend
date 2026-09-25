@@ -64,6 +64,52 @@ Every interactive component documents:
 - analytics/privacy constraints;
 - unit, accessibility and Storybook coverage.
 
+## Implementation status (V2-FE-121)
+
+The semantic token layer and its first primitives are implemented and kept in
+sync by tests.
+
+### Tokens
+
+`src/lib/design-tokens.ts` is the code-side source of truth for token names;
+`src/app/globals.css` declares their values. The design-system test
+(`src/__tests__/design-system/semantic-tokens.test.ts`) fails if the two drift.
+
+- **Semantic colours** are declared in both `:root` (light) and `.dark`, and
+  mapped into the Tailwind `@theme inline` block as `--color-*` utilities:
+  `canvas, surface, elevated, ink, ink-secondary, ink-muted, action,
+  action-hover, action-ink, focus, success, warning, danger, info, pending,
+  confirmed, finalized, orphaned, divider, disabled`.
+- **Type scale** (`--type-*`): `display, title, section, body, small, label,
+  code, data`.
+- **Layout**: `--touch-target` (44px), `--content-width`, `--gutter`.
+- **Utilities**: `.tb-data` (tabular numerals), `.tb-title`, `.tb-section`,
+  `.tb-body`, `.tb-small`, `.tb-label`, `.tb-touch`, `.tb-content`.
+
+### Primitives
+
+Located in `src/components/ui/primitives` (barrel-exported):
+
+- **StatusBadge** — accessible status indicator. Meaning is carried by the text
+  label plus a distinct icon glyph (never colour alone). `description` is
+  assistive-tech only; `live` marks it a polite `role="status"` region.
+- **Card** — presentational surface bound to `--surface` / `--elevated`;
+  forwards landmark props (`role`, `aria-labelledby`).
+- **TokenAmount** — renders a pre-formatted amount verbatim with tabular
+  numerals; it never derives, rounds or invents a value.
+
+Storybook coverage: `src/components/ui/primitives/StatusBadge.stories.tsx`.
+
+### Feature panels built on the primitives
+
+- **EconomicRiskDisclosure** (V2-FE-116) — `src/components/features/economics`;
+  discloses canonical bond, protocol fee, appeal window and allowance state,
+  failing closed when parameters cannot be verified.
+- **SettlementStatusPanel** (V2-FE-117) — `src/components/features/settlement`;
+  renders settlement/payout status from canonical inputs.
+- **RewardsClaimFlow** (V2-FE-118) — `src/components/features/rewards`;
+  accessible claim journey with honest transaction state.
+
 ## Prohibited patterns
 
 - fabricated success, hashes, gas or rewards;
